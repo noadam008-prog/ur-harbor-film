@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Meluhha Storyboard v3</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+  :root { --lapis:#101a33; --line:#2b3a68; --text:#e9e4d6; --muted:#a3a8bd; --carnelian:#e0703f; --pass:#7fc99a; --fail:#ef6b6b; --flag:#e8c35a;
+    --display:"Young Serif", Georgia, serif; --body:"Instrument Sans", system-ui, "Segoe UI", sans-serif; color-scheme: dark; }
+  body { margin:0; background:var(--lapis); color:var(--text); font:16px/1.6 var(--body);
+    padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:40px 64px; }
+  main { max-width:1100px; margin:0 auto; display:grid; gap:32px; }
+  h1 { font:400 clamp(28px,5vw,44px)/1.1 var(--display); margin:0; }
+  h2 { font:400 22px/1.2 var(--display); margin:0 0 12px; }
+  .tag { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--carnelian); font-weight:600; }
+  .lede { color:var(--muted); margin:6px 0 0; max-width:65ch; }
+  .rules { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px 24px; margin:0; padding:0; list-style:none; }
+  .rules li { border-top:1px solid var(--line); padding-top:8px; font-size:14px; min-width:0; }
+  .rules b { display:block; font-weight:600; }
+  .shots { display:grid; gap:28px; }
+  .shot { display:grid; grid-template-columns:minmax(0, 1.3fr) minmax(0, 1fr); gap:20px; align-items:start; border-top:1px solid var(--line); padding-top:20px; }
+  @media (max-width: 760px) { .shot { grid-template-columns:1fr; } }
+  img { width:100%; max-width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:6px; display:block; }
+  .meta { display:grid; gap:8px; min-width:0; }
+  .title { font-weight:600; font-size:18px; }
+  .pill { justify-self:start; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; padding:3px 10px; border-radius:999px; border:1px solid currentColor; }
+  .pass { color:var(--pass); } .fail { color:var(--fail); } .flag { color:var(--flag); }
+  .meta ul { margin:0; padding-left:18px; font-size:14px; color:var(--muted); }
+  .meta li b { color:var(--text); font-weight:600; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+  td.n { font-variant-numeric:tabular-nums; text-align:right; }
+  .wrap { overflow-x:auto; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="tag">Version 3 · for approval · nothing animated yet</span>
+    <h1>A Ship from Meluhha: storyboard v3</h1>
+    <p class="lede">Every shot checked against the same list. New shots are stills only; video is made after you approve.</p>
+  </header>
+
+  <section>
+    <h2>Checklist</h2>
+    <ul class="rules">
+      <li><b>Ship</b>Seagoing: reed bundles coated in black bitumen, high curved ends, A-frame mast, square sail, crew of 8–10. Same ship in every shot.</li>
+      <li><b>Buildings</b>Low, plain, flat-roofed mudbrick; small doorways. No towers, arches, battlements or framed windows.</li>
+      <li><b>Scale</b>People in true proportion to houses and ship.</li>
+      <li><b>Clothing</b>Undyed wool and linen in beige and grey; Meluhhans in cotton. No bright white robes, headscarves or hoods. Bare feet.</li>
+      <li><b>Props</b>Clay, reed, wood, stone only. Nothing metal, plastic, painted bright or printed. No cars, tanks or modern boats.</li>
+      <li><b>Story</b>Sky → ship arrives → docking → trading → beads → sealing → unloading → market.</li>
+    </ul>
+  </section>
+
+  <section class="shots">
+    <h2>Shots</h2>
+    <div class="shot"><img src="v3/01-sky.jpg" alt="High aerial view of a walled mudbrick city on a flat plain with a reed ship arriving at the quay">
+      <div class="meta"><span class="tag">1 · Opening · new still</span><span class="title">From the sky to the harbour</span><span class="pill pass">Passes after fixes</span>
+        <ul><li><b>Camera:</b> descend from the sky toward the ship arriving at the quay.</li><li><b>Fixed by hand:</b> a modern car on the beach removed; bright painted deck toned to wood and reed.</li><li>Earlier attempt rejected: sand glitch in the river, rooftop water tank.</li></ul></div></div>
+
+    <div class="shot"><img src="v3/02-docking.jpg" alt="Black reed ship with A-frame mast at a quay, crew aboard, dockworkers pulling ropes">
+      <div class="meta"><span class="tag">2 · Docking · new still</span><span class="title">The ship from Meluhha comes alongside</span><span class="pill flag">Passes, two flags</span>
+        <ul><li><b>Flag:</b> the dockworkers wear headbands and hair buns like the Meluhhans instead of shaved Sumerian heads.</li><li><b>Flag:</b> one bright white sack, bottom left.</li><li>Earlier attempt rejected: ship on dry land, CGI look, framed windows.</li></ul></div></div>
+
+    <div class="shot"><img src="v3/03-trading.jpg" alt="Two Indus merchants bargaining with a Sumerian trader over a balance and stone weights">
+      <div class="meta"><span class="tag">3 · Trading · existing clip</span><span class="title">Bargaining on the quay</span><span class="pill flag">Passes, one flag</span>
+        <ul><li><b>Flag:</b> cube weights about 4× too big (real ones 1–3 cm).</li><li>People, clothing and buildings pass.</li></ul></div></div>
+
+    <div class="shot"><img src="v3/04-beads.jpg" alt="Indus merchant showing carnelian beads to a bearded Sumerian trader">
+      <div class="meta"><span class="tag">4 · Beads · existing clip</span><span class="title">Carnelian beads</span><span class="pill pass">Passes</span></div></div>
+
+    <div class="shot"><img src="v3/05-seal.jpg" alt="Hand pressing a large white seal into clay beside a clay sealing with a bull">
+      <div class="meta"><span class="tag">5 · Seal · existing clip</span><span class="title">Sealing a bale</span><span class="pill fail">Fails</span>
+        <ul><li>Seal about 3× too big, with a round pattern on top that real seals do not have.</li><li>Old low-motion model, very static.</li><li><b>Plan:</b> new still + Veo.</li></ul></div></div>
+
+    <div class="shot"><img src="v3/06-unloading.jpg" alt="Two workers carrying a log, a scribe with a tablet, a merchant leaning over">
+      <div class="meta"><span class="tag">6 · Unloading · existing clip</span><span class="title">Ivory and timber</span><span class="pill fail">Fails</span>
+        <ul><li>Shiny metal bowl by the boat.</li><li>The tablet is a big slab, not a palm-sized tablet.</li><li>The boat behind is the old wooden one, not the new reed ship.</li><li><b>Plan:</b> new still + Veo.</li></ul></div></div>
+
+    <div class="shot"><img src="v3/07-market.jpg" alt="Two Indus merchants walking barefoot through a market lane past baskets and a donkey">
+      <div class="meta"><span class="tag">7 · Market · existing clip</span><span class="title">Into the market</span><span class="pill pass">Passes</span></div></div>
+  </section>
+
+  <section>
+    <h2>Cost to finish</h2>
+    <div class="wrap"><table>
+      <thead><tr><th>Work</th><th>Credits</th></tr></thead>
+      <tbody>
+        <tr><td>1 Opening: animate (Veo)</td><td class="n">80</td></tr>
+        <tr><td>2 Docking: animate (Veo)</td><td class="n">80</td></tr>
+        <tr><td>5 Seal: new still + Veo</td><td class="n">88</td></tr>
+        <tr><td>6 Unloading: new still + Veo</td><td class="n">88</td></tr>
+        <tr><td>Optional: 3 Trading with small weights</td><td class="n">88</td></tr>
+        <tr><td><b>Total</b> (without / with optional)</td><td class="n"><b>336 / 424</b></td></tr>
+      </tbody>
+    </table></div>
+    <p class="lede">Credits available: 1,160. That leaves room to redo any shot if needed.</p>
+  </section>
+</main>
+</body>
+</html>
