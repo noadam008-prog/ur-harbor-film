@@ -1,0 +1,1232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Walk Through Ur</title>
+<meta name="description" content="Walk with two merchants from Meluhha through Ur around 2300 BCE, from the river quay to the temple of Nanna, and click what you see to learn what archaeologists found.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --lapis:#101a33; --panel:rgba(16,26,51,.86); --line:rgba(233,228,214,.16); --text:#efe9da; --muted:#b9bbc8;
+    --carnelian:#e0703f; --gold:#e8c35a; --green:#8fd3a8;
+    --display:"Young Serif", Georgia, serif; --body:"Instrument Sans", system-ui, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#d6bb93; color:var(--text); font:14px/1.55 var(--body); }
+  canvas { display:block; width:100vw; height:100vh; touch-action:none; outline:none; }
+  button { font:inherit; color:inherit; cursor:pointer; }
+  .glass { background:var(--panel); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); border:1px solid var(--line); border-radius:14px; }
+  .eyebrow { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--carnelian); font-weight:600; }
+
+  #top { position:fixed; top:max(12px, env(safe-area-inset-top)); left:max(12px, env(safe-area-inset-left)); right:max(12px, env(safe-area-inset-right));
+    display:flex; justify-content:space-between; align-items:flex-start; gap:8px; pointer-events:none; }
+  #top > * { pointer-events:auto; }
+  .brand { padding:8px 14px; min-width:0; }
+  .brand h1 { font:400 18px/1.2 var(--display); margin:0; }
+  .brand a { color:var(--muted); font-size:12px; }
+  #journalBtn { padding:10px 14px; border-radius:999px; display:flex; gap:8px; align-items:center; white-space:nowrap; }
+  #journalBtn b { color:var(--gold); font-weight:600; font-variant-numeric:tabular-nums; }
+
+  #tour { position:fixed; left:50%; transform:translateX(-50%); bottom:max(12px, env(safe-area-inset-bottom));
+    width:min(600px, calc(100vw - 24px)); padding:14px 16px; display:grid; gap:10px; transition:opacity .25s, left .4s, width .4s; }
+  #tour .row { display:flex; gap:12px; align-items:center; justify-content:space-between; }
+  #stopTitle { font:400 18px/1.25 var(--display); margin:2px 0 0; }
+  #stopText { margin:0; color:var(--muted); font-size:14px; }
+  #chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { border:1px solid var(--line); background:rgba(255,255,255,.04); border-radius:999px; padding:4px 10px; font-size:12px; }
+  .chip.found { border-color:rgba(232,195,90,.5); color:var(--gold); }
+  .navbtns { display:flex; gap:6px; flex-shrink:0; }
+  .btn { border:0; border-radius:999px; padding:10px 16px; font-weight:600; background:var(--carnelian); color:#1b0f08; }
+  .btn.ghost { background:rgba(255,255,255,.08); color:var(--text); border:1px solid var(--line); font-weight:500; }
+  .btn:disabled { opacity:.4; cursor:default; }
+  .hint { font-size:12px; color:var(--muted); }
+
+  #panel { position:fixed; top:84px; right:12px; bottom:12px; width:min(410px, calc(100vw - 24px)); overflow:auto;
+    padding:22px 22px 26px; transform:translateX(112%); transition:transform .4s cubic-bezier(.2,.8,.2,1); }
+  #panel.open { transform:none; }
+  #panel h2 { font:400 24px/1.2 var(--display); margin:6px 0 10px; }
+  #panel p { margin:0 0 12px; }
+  #panel .evidence { border-top:1px solid var(--line); padding-top:12px; margin-top:6px; font-size:14px; color:var(--muted); }
+  #panel .evidence b { color:var(--text); font-weight:600; }
+  #panel .src { font-size:12px; color:var(--muted); margin-top:10px; }
+  #closePanel { position:absolute; top:12px; right:12px; width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:rgba(255,255,255,.05); }
+  .tag { display:inline-block; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; padding:3px 9px; border-radius:999px; border:1px solid currentColor; }
+  .tag.ev { color:var(--green); } .tag.later { color:var(--gold); } .tag.rec { color:var(--carnelian); }
+
+  #journal { position:fixed; top:84px; right:12px; width:min(340px, calc(100vw - 24px)); max-height:calc(100vh - 110px); overflow:auto; padding:16px; display:none; }
+  #journal.open { display:block; }
+  #journal h2 { font:400 18px/1.2 var(--display); margin:0 0 10px; }
+  #journal ol { margin:0; padding:0; list-style:none; display:grid; gap:4px; }
+  #journal li button { width:100%; text-align:left; background:none; border:0; padding:7px 8px; border-radius:8px; display:flex; gap:8px; align-items:center; }
+  #journal li button:hover { background:rgba(255,255,255,.06); }
+  #journal .dot { width:9px; height:9px; border-radius:50%; border:1px solid var(--muted); flex-shrink:0; }
+  #journal .found .dot { background:var(--gold); border-color:var(--gold); }
+  #journal .where { margin-left:auto; color:var(--muted); font-size:12px; }
+
+  #intro { position:fixed; inset:0; display:grid; place-items:center; padding:16px;
+    background:radial-gradient(ellipse at 50% 40%, rgba(16,26,51,.55), rgba(16,26,51,.88)); transition:opacity .6s; }
+  #intro.gone { opacity:0; pointer-events:none; }
+  #intro .card { max-width:560px; padding:28px; }
+  #intro h1 { font:400 clamp(30px, 6vw, 46px)/1.08 var(--display); margin:6px 0 12px; }
+  #intro p { color:var(--muted); margin:0 0 14px; }
+  #intro ul { margin:0 0 18px; padding-left:18px; color:var(--muted); font-size:14px; }
+  #loadText { font-size:12px; color:var(--muted); margin-top:12px; }
+  #err { position:fixed; left:12px; bottom:12px; max-width:60vw; background:#5a1010; color:#fff; padding:8px 10px; font:12px monospace; display:none; white-space:pre-wrap; }
+
+  @media (min-width: 721px) {
+    body.panel-open #tour { left:calc((100vw - 434px) / 2); width:min(600px, calc(100vw - 470px)); }
+  }
+  @media (max-width: 720px) {
+    #panel { top:auto; left:12px; right:12px; width:auto; max-height:60vh; transform:translateY(115%); }
+    #panel.open { transform:none; }
+    body.panel-open #tour { opacity:0; pointer-events:none; }
+    .brand h1 { font-size:16px; }
+    #tour { padding:12px; }
+    #stopTitle { font-size:16px; }
+    .hint { display:none; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="3D view of the city of Ur"></canvas>
+
+<div id="top">
+  <div class="brand glass"><div class="eyebrow">Ur · c. 2300 BCE</div><h1>Walk Through Ur</h1><a href="../">← back to the film</a></div>
+  <button id="journalBtn" class="glass" type="button">Discoveries <b id="foundCount">0 / 0</b></button>
+</div>
+
+<div id="tour" class="glass" hidden>
+  <div class="row">
+    <div style="min-width:0">
+      <div class="eyebrow" id="stopNum">Stop 1 of 7</div>
+      <h2 id="stopTitle">The quay</h2>
+    </div>
+    <div class="navbtns">
+      <button class="btn ghost" id="prevBtn" type="button" aria-label="Previous stop">‹</button>
+      <button class="btn" id="nextBtn" type="button">Walk on ›</button>
+    </div>
+  </div>
+  <p id="stopText"></p>
+  <div id="chips"></div>
+  <div class="hint">Click the ground to walk · drag to look around · scroll or pinch to zoom · WASD or arrow keys also work</div>
+</div>
+
+<aside id="panel" class="glass" aria-live="polite">
+  <button id="closePanel" type="button" aria-label="Close">✕</button>
+  <span id="pTag" class="tag ev">Evidence</span>
+  <h2 id="pTitle"></h2>
+  <div id="pBody"></div>
+  <div class="evidence" id="pEvidence"></div>
+  <div class="src" id="pSrc"></div>
+</aside>
+
+<div id="journal" class="glass">
+  <h2>Discoveries</h2>
+  <ol id="jList"></ol>
+</div>
+
+<div id="intro">
+  <div class="card glass">
+    <div class="eyebrow">Ur · c. 2300 BCE · the age of Sargon of Akkad</div>
+    <h1>Walk Through Ur</h1>
+    <p>Follow two merchants from Meluhha, the Indus Valley, from the river quay where their ship has moored, through the city gate and the lanes of mudbrick houses, up to the temple of the moon god Nanna.</p>
+    <ul>
+      <li>Click anything marked <b style="color:var(--gold)">i</b>, or the people and objects themselves, to zoom in and read what archaeologists actually found.</li>
+      <li>Every entry says whether it is direct evidence, later evidence or reconstruction.</li>
+      <li>The city is shown at about a fifth of its real size, and people and buildings are simplified.</li>
+    </ul>
+    <button class="btn" id="startBtn" type="button" disabled>Building the city…</button>
+    <div id="loadText">Loading 3D engine…</div>
+  </div>
+</div>
+<div id="err"></div>
+
+<script>
+  window.addEventListener('error', e => { const el = document.getElementById('err'); el.style.display = 'block'; el.textContent += (e.message || e) + '\n'; });
+  window.addEventListener('unhandledrejection', e => { const el = document.getElementById('err'); el.style.display = 'block'; el.textContent += String(e.reason && e.reason.stack || e.reason) + '\n'; });
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { Sky } from 'three/addons/objects/Sky.js';
+
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const loadText = t => { $('loadText').textContent = t; };
+const frame = () => new Promise(r => requestAnimationFrame(() => r()));
+
+// ---------- renderer, scene, camera ----------
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const mobile = matchMedia('(max-width: 720px)').matches || matchMedia('(pointer: coarse)').matches;
+renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.8;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const HAZE = new THREE.Color('#d8bf9a');
+scene.fog = new THREE.Fog(HAZE, 110, 520);
+scene.background = HAZE;
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 3000);
+
+const sky = new Sky();
+sky.scale.setScalar(2500);
+scene.add(sky);
+const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 38), THREE.MathUtils.degToRad(-38));
+Object.assign(sky.material.uniforms.turbidity, { value: 7 });
+sky.material.uniforms.rayleigh.value = 1.6;
+sky.material.uniforms.mieCoefficient.value = 0.006;
+sky.material.uniforms.mieDirectionalG.value = 0.86;
+sky.material.uniforms.sunPosition.value.copy(sunDir);
+
+const hemi = new THREE.HemisphereLight('#e6edf5', '#b8946a', 1.7);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight('#ffd9a8', 3.2);
+sun.castShadow = true;
+sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
+Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 400 });
+sun.shadow.bias = -0.0005;
+sun.shadow.normalBias = 0.05;
+scene.add(sun, sun.target);
+
+// ---------- helpers ----------
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const R = rng(2300);
+const rr = (a, b) => a + (b - a) * R();
+const clamp = THREE.MathUtils.clamp;
+
+function makeCanvas(w, h = w) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+function toTex(c, rx = 1, ry = rx, srgb = true) {
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+function speckle(g, w, h, n, cols, rmin, rmax, a) {
+  for (let i = 0; i < n; i++) {
+    g.globalAlpha = a * Math.random(); g.fillStyle = cols[(Math.random() * cols.length) | 0];
+    const r = rmin + Math.random() * (rmax - rmin);
+    g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, r, r * (0.4 + Math.random() * 0.8), Math.random() * 3, 0, 7); g.fill();
+  }
+  g.globalAlpha = 1;
+}
+// box whose UVs are scaled to world metres (ts = metres per texture tile)
+function box(w, h, d, x, y, z, ts = 4) {
+  const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv;
+  const dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+  for (let f = 0; f < 6; f++) for (let i = 0; i < 4; i++) { const k = f * 4 + i; uv.setXY(k, uv.getX(k) * dims[f][0] / ts, uv.getY(k) * dims[f][1] / ts); }
+  g.translate(x, y, z); return g;
+}
+function tint(geo, col) {
+  const n = geo.attributes.position.count, a = new Float32Array(n * 3), c = new THREE.Color(col);
+  for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
+  geo.setAttribute('color', new THREE.BufferAttribute(a, 3)); return geo;
+}
+function mesh(geo, mat, cast = true, receive = true) { const m = new THREE.Mesh(geo, mat); m.castShadow = cast; m.receiveShadow = receive; return m; }
+const std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.92, metalness: 0 }, o));
+
+// ---------- textures ----------
+function plasterCanvas(base, cols) {
+  const [c, g] = makeCanvas(512); g.fillStyle = base; g.fillRect(0, 0, 512, 512);
+  speckle(g, 512, 512, 2600, cols, 2, 16, 0.32);
+  g.strokeStyle = 'rgba(80,55,30,0.08)'; g.lineWidth = 1;
+  for (let y = 0; y < 512; y += 16) { g.beginPath(); g.moveTo(0, y); g.lineTo(512, y); g.stroke();
+    for (let x = ((y / 16) % 2) * 20; x < 512; x += 40) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 16); g.stroke(); } }
+  for (let i = 0; i < 50; i++) { g.fillStyle = 'rgba(110,80,50,0.06)'; g.fillRect(Math.random() * 512, Math.random() * 512, 2 + Math.random() * 4, 40 + Math.random() * 150); }
+  return c;
+}
+const plasterTex = toTex(plasterCanvas('#c9a97e', ['#b8966b', '#d8bd94', '#a98862', '#e0c9a2']));
+const plasterBump = toTex(plasterCanvas('#808080', ['#606060', '#a0a0a0', '#505050', '#b0b0b0']), 1, 1, false);
+const whiteTex = toTex(plasterCanvas('#e2d7c2', ['#d2c4ab', '#ede4d2', '#cbbb9f']));
+
+const brickTex = (() => {
+  const [c, g] = makeCanvas(256); g.fillStyle = '#6c5035'; g.fillRect(0, 0, 256, 256);
+  for (let y = 0; y < 256; y += 32) for (let x = 0; x < 256; x += 32) {
+    const v = Math.random() * 18 - 9; g.fillStyle = `rgb(${168 + v},${128 + v},${90 + v})`; g.fillRect(x + 2, y + 2, 28, 28);
+  }
+  speckle(g, 256, 256, 500, ['#8a6646', '#c09670'], 1, 4, 0.4); return toTex(c);
+})();
+const groundDetail = (() => {
+  const [c, g] = makeCanvas(256); g.fillStyle = '#808080'; g.fillRect(0, 0, 256, 256);
+  speckle(g, 256, 256, 1600, ['#6a6a6a', '#9a9a9a', '#505050', '#b0b0b0'], 1, 5, 0.6); return toTex(c, 1, 1, false);
+})();
+const reedTex = (() => {
+  const [c, g] = makeCanvas(256); g.fillStyle = '#c4a45c'; g.fillRect(0, 0, 256, 256);
+  for (let x = 0; x < 256; x += 3) { g.fillStyle = ['#a8893f', '#d7bb76', '#b99a52', '#e3cb8a'][(Math.random() * 4) | 0]; g.globalAlpha = 0.7; g.fillRect(x, 0, 2, 256); }
+  g.globalAlpha = 1; return toTex(c);
+})();
+const matTex = (() => {
+  const [c, g] = makeCanvas(256); g.fillStyle = '#b8995a'; g.fillRect(0, 0, 256, 256);
+  for (let y = 0; y < 256; y += 16) for (let x = 0; x < 256; x += 16) {
+    g.fillStyle = ((x + y) / 16) % 2 ? '#cdb06c' : '#a1823f';
+    if (((x + y) / 16) % 2) g.fillRect(x, y + 2, 16, 12); else g.fillRect(x + 2, y, 12, 16);
+  }
+  return toTex(c);
+})();
+const bitumenTex = (() => {
+  const [c, g] = makeCanvas(256); g.fillStyle = '#1f1c18'; g.fillRect(0, 0, 256, 256);
+  for (let y = 0; y < 256; y += 4) { g.fillStyle = Math.random() < .5 ? '#2a2620' : '#16140f'; g.fillRect(0, y, 256, 2); }
+  speckle(g, 256, 256, 300, ['#3a342b', '#0e0c0a'], 1, 5, 0.6); return toTex(c);
+})();
+const woodTex = (() => {
+  const [c, g] = makeCanvas(256); g.fillStyle = '#6e4c2e'; g.fillRect(0, 0, 256, 256);
+  for (let y = 0; y < 256; y += 2) { g.fillStyle = `rgba(${Math.random() < .5 ? '40,25,12' : '140,100,65'},${Math.random() * 0.25})`; g.fillRect(0, y, 256, 1); }
+  return toTex(c);
+})();
+function clothTex(base, pattern) {
+  const [c, g] = makeCanvas(256); g.fillStyle = base; g.fillRect(0, 0, 256, 256);
+  g.globalAlpha = 0.08; for (let i = 0; i < 256; i += 2) { g.fillStyle = '#000'; g.fillRect(0, i, 256, 1); g.fillRect(i, 0, 1, 256); } g.globalAlpha = 1;
+  if (pattern === 'trefoil') {
+    for (let y = 16; y < 256; y += 32) for (let x = (y / 32 % 2) * 16 + 8; x < 256; x += 32) {
+      g.fillStyle = '#5e0f0b'; g.strokeStyle = '#e9d6a4'; g.lineWidth = 2;
+      for (let k = 0; k < 3; k++) { const a = k * 2.094 - 1.57; g.beginPath(); g.arc(x + Math.cos(a) * 5, y + Math.sin(a) * 5, 4.4, 0, 7); g.fill(); g.stroke(); }
+    }
+  }
+  if (pattern === 'fleece') {
+    for (let y = 0; y < 256; y += 22) for (let x = (y / 22 % 2) * 8; x < 256; x += 16) {
+      g.fillStyle = Math.random() < .5 ? '#d9c79c' : '#c3ad7f'; g.beginPath(); g.ellipse(x, y + 10, 6, 11, 0, 0, 7); g.fill();
+      g.strokeStyle = 'rgba(80,60,30,.35)'; g.stroke();
+    }
+  }
+  if (pattern === 'flounce') {
+    for (let y = 0; y < 256; y += 32) { g.fillStyle = 'rgba(70,50,30,.25)'; g.fillRect(0, y + 28, 256, 4); for (let x = 0; x < 256; x += 6) { g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(x, y, 2, 28); } }
+  }
+  return toTex(c);
+}
+const leafTex = (() => {
+  const [c, g] = makeCanvas(512, 128); g.clearRect(0, 0, 512, 128);
+  g.strokeStyle = '#6b6a36'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, 64); g.lineTo(512, 64); g.stroke();
+  for (let x = 10; x < 505; x += 7) {
+    const len = 58 * Math.sin(Math.PI * (x / 512) * 0.95 + 0.1);
+    for (const s of [-1, 1]) {
+      g.strokeStyle = ['#56602c', '#6f7a3a', '#7f8a47', '#4b5428'][(Math.random() * 4) | 0]; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(x, 64); g.lineTo(x + 22, 64 + s * len); g.stroke();
+    }
+  }
+  const t = toTex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
+})();
+const barkTex = (() => {
+  const [c, g] = makeCanvas(128, 256); g.fillStyle = '#7a6346'; g.fillRect(0, 0, 128, 256);
+  for (let y = 0; y < 256; y += 10) for (let x = (y / 10 % 2) * 8; x < 128; x += 16) { g.fillStyle = Math.random() < .5 ? '#5d4a33' : '#8f7756'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 8, y + 10); g.lineTo(x + 16, y); g.fill(); }
+  return toTex(c, 2, 6);
+})();
+const waterBump = (() => {
+  const [c, g] = makeCanvas(256); g.fillStyle = '#808080'; g.fillRect(0, 0, 256, 256);
+  speckle(g, 256, 256, 900, ['#5a5a5a', '#a8a8a8'], 4, 18, 0.35); return toTex(c, 60, 20, false);
+})();
+
+// landscape: one big painted map for the plain (fields, canals, harbour)
+const CITY = { cx: 0, cz: -70, rin: 92, rout: 108 };
+const LAND = { x0: -600, x1: 600, z0: -600, z1: 62 };
+const landTex = (() => {
+  const W = 2048, H = 1152; const [c, g] = makeCanvas(W, H);
+  const px = x => (x - LAND.x0) / (LAND.x1 - LAND.x0) * W, pz = z => (z - LAND.z0) / (LAND.z1 - LAND.z0) * H;
+  const sx = W / (LAND.x1 - LAND.x0);
+  g.fillStyle = '#c4a173'; g.fillRect(0, 0, W, H);
+  const fr = rng(7);
+  for (let z = LAND.z0; z < LAND.z1; z += 22) for (let x = LAND.x0; x < LAND.x1; x += 30) {
+    const cx = x + 15, cz = z + 11, d = Math.hypot(cx - CITY.cx, cz - CITY.cz);
+    if (d < CITY.rout + 22 || cz > 16) continue;
+    const cols = ['#7f8b4b', '#8f9750', '#a6a05a', '#c2a65e', '#b49162', '#6f7d44'];
+    g.fillStyle = cols[(fr() * cols.length) | 0];
+    g.fillRect(px(x + 1), pz(z + 1), 28 * sx, 20 * sx);
+    if (fr() < 0.5) { g.globalAlpha = 0.18; for (let k = 0; k < 6; k++) { g.fillStyle = '#5a6332'; g.fillRect(px(x + 1), pz(z + 2 + k * 3.2), 28 * sx, 0.8 * sx); } g.globalAlpha = 1; }
+  }
+  g.strokeStyle = '#6e7f78'; g.lineWidth = 3 * sx;
+  for (const xx of [-300, -180, 160, 300]) { g.beginPath(); g.moveTo(px(xx), pz(LAND.z0)); g.lineTo(px(xx + 40), pz(10)); g.stroke(); }
+  for (const zz of [-260, -420]) { g.beginPath(); g.moveTo(px(LAND.x0), pz(zz)); g.lineTo(px(LAND.x1), pz(zz + 30)); g.stroke(); }
+  // city interior: dusty lanes
+  g.fillStyle = '#c9ab7f'; g.beginPath(); g.arc(px(CITY.cx), pz(CITY.cz), CITY.rin * sx, 0, 7); g.fill();
+  // harbour: packed earth
+  g.fillStyle = '#b9966a'; g.fillRect(px(-80), pz(20), 160 * sx, 42 * sx);
+  speckle(g, W, H, 9000, ['#b0905f', '#d1b385', '#a3845a'], 1, 6, 0.4);
+  const t = toTex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
+})();
+
+// ---------- materials ----------
+const M = {
+  house: std({ map: plasterTex, bumpMap: plasterBump, bumpScale: 1.2, vertexColors: true }),
+  rampart: std({ map: plasterTex, bumpMap: plasterBump, bumpScale: 1.5, color: '#f2e2c6' }),
+  temple: std({ map: whiteTex, bumpMap: plasterBump, bumpScale: 0.8 }),
+  terrace: std({ map: plasterTex, bumpMap: plasterBump, bumpScale: 1.2, color: '#ead6b6' }),
+  brick: std({ map: brickTex }),
+  door: std({ color: '#2b1e14', roughness: 1 }),
+  wood: std({ map: woodTex, roughness: 0.85 }),
+  reed: std({ map: reedTex }),
+  mat: std({ map: matTex }),
+  rope: std({ color: '#9b7b4a' }),
+  bitumen: std({ map: bitumenTex, roughness: 0.42 }),
+  jar: std({ color: '#b5784a', roughness: 0.85 }),
+  jarPale: std({ color: '#cfa77a', roughness: 0.85 }),
+  clay: std({ color: '#8e7a62', roughness: 1 }),
+  sail: std({ color: '#d9cba8', roughness: 0.95 }),
+  stone: std({ color: '#d9d4c6', roughness: 0.6 }),
+  chert: std({ color: '#b7ab93', roughness: 0.35 }),
+  carnelian: std({ color: '#c0391b', roughness: 0.25 }),
+  frond: std({ map: leafTex, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.8 }),
+  bark: std({ map: barkTex }),
+  dark: std({ color: '#1a1410', roughness: 0.8 }),
+  hair: std({ color: '#17110d', roughness: 0.7 }),
+  red: std({ map: clothTex('#a3241c', 'trefoil'), side: THREE.DoubleSide }),
+  white: std({ map: clothTex('#e7ddc6'), side: THREE.DoubleSide }),
+  wool: std({ map: clothTex('#7b5b3b'), side: THREE.DoubleSide }),
+  fleece: std({ map: clothTex('#cdb88d', 'fleece'), side: THREE.DoubleSide }),
+  flounce: std({ map: clothTex('#e4d8bf', 'flounce'), side: THREE.DoubleSide }),
+  linen: std({ map: clothTex('#cdbf9f'), side: THREE.DoubleSide }),
+  donkey: std({ color: '#7d7166', roughness: 1 }),
+  donkeyPale: std({ color: '#c9bdaa', roughness: 1 }),
+};
+
+// darken walls where they meet the ground, a cheap stand-in for ambient occlusion
+function groundAO(mat, strength = 0.32, h = 1.5) {
+  mat.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vWY;')
+      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWY = (modelMatrix * vec4(transformed, 1.0)).y;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vWY;')
+      .replace('#include <dithering_fragment>', `#include <dithering_fragment>\ngl_FragColor.rgb *= mix(${(1 - strength).toFixed(2)}, 1.0, smoothstep(0.0, ${h.toFixed(2)}, vWY));`);
+  };
+  return mat;
+}
+groundAO(M.house); groundAO(M.rampart, 0.3, 3); groundAO(M.terrace, 0.3, 2.5);
+
+// ---------- world: colliders ----------
+// level 0 = ground, 1 = temple terrace top
+const colliders = [];
+const addCol = (x0, x1, z0, z1, level = 0) => colliders.push({ x0, x1, z0, z1, level });
+const RAMP = { x0: -3, x1: 3, zTop: -63, zBot: -45 };
+const TERRACE = { x0: -22, x1: 22, z0: -97, z1: -63, h: 7 };
+const walkables = [];
+const clickables = [];
+
+function structureAt(x, z) {
+  if (x > TERRACE.x0 && x < TERRACE.x1 && z > TERRACE.z0 && z < TERRACE.z1) return 'top';
+  if (x > RAMP.x0 && x < RAMP.x1 && z >= RAMP.zTop && z < RAMP.zBot) return 'ramp';
+  return null;
+}
+function heightAt(level, z) {
+  if (level === 'top') return TERRACE.h;
+  if (level === 'ramp') return TERRACE.h * clamp((RAMP.zBot - z) / (RAMP.zBot - RAMP.zTop), 0, 1);
+  return 0;
+}
+function collides(x, z, level, r = 0.42) {
+  const lv = level === 'top' ? 1 : level === 'ramp' ? 2 : 0;
+  if (lv === 2) return false;
+  for (const c of colliders) if (c.level === lv && x > c.x0 - r && x < c.x1 + r && z > c.z0 - r && z < c.z1 + r) return true;
+  if (lv === 1) return false;
+  if (z > 61.2) return true;
+  const d = Math.hypot(x - CITY.cx, z - CITY.cz);
+  if (d > CITY.rin - 0.8 && d < CITY.rout + 0.8 && !(Math.abs(x) < 2.6 && z > CITY.cz)) return true;
+  if (d >= CITY.rout + 0.8 && (z < 20 || Math.abs(x) > 74)) return true;
+  return false;
+}
+// returns new level or null if blocked
+function stepLevel(cur, nx, nz) {
+  const nxt = structureAt(nx, nz);
+  let lv;
+  if (cur === 'ground') { if (!nxt) lv = 'ground'; else if (nxt === 'ramp' && nz > RAMP.zBot - 1.6) lv = 'ramp'; else return null; }
+  else { if (nxt) lv = nxt; else if (cur === 'ramp' && nz > RAMP.zBot - 1.6) lv = 'ground'; else return null; }
+  return collides(nx, nz, lv) ? null : lv;
+}
+
+// ---------- world building ----------
+const world = new THREE.Group(); scene.add(world);
+
+function buildLand() {
+  const w = LAND.x1 - LAND.x0, h = LAND.z1 - LAND.z0;
+  const g = new THREE.PlaneGeometry(w, h); g.rotateX(-Math.PI / 2); g.translate((LAND.x0 + LAND.x1) / 2, 0, (LAND.z0 + LAND.z1) / 2);
+  const det = groundDetail.clone(); det.needsUpdate = true; det.repeat.set(w / 3, h / 3);
+  const ground = mesh(g, std({ map: landTex, bumpMap: det, bumpScale: 0.8 }), false, true);
+  ground.name = 'ground'; world.add(ground); walkables.push(ground);
+  // river, bed, banks
+  const water = mesh(new THREE.PlaneGeometry(1400, 190).rotateX(-Math.PI / 2).translate(0, -0.9, 62 + 95),
+    std({ color: '#6b6347', roughness: 0.14, metalness: 0.1, bumpMap: waterBump, bumpScale: 0.25, transparent: true, opacity: 0.93 }), false, false);
+  world.add(water); world.userData.water = water;
+  world.add(mesh(new THREE.PlaneGeometry(1400, 190).rotateX(-Math.PI / 2).translate(0, -3, 157), std({ color: '#3c3426' }), false, false));
+  world.add(mesh(box(150, 3, 1.2, 0, -1.5, 61.9, 2), M.brick, false, true));
+  world.add(mesh(box(1200, 3, 1.2, 0, -1.55, 61.95, 4), std({ color: '#a88660', map: plasterTex }), false, true));
+  const far = new THREE.PlaneGeometry(1400, 500); far.rotateX(-Math.PI / 2); far.translate(0, 0.2, 252 + 250);
+  const farTex = landTex.clone(); farTex.needsUpdate = true;
+  world.add(mesh(far, std({ map: farTex }), false, true));
+  world.add(mesh(box(1400, 3.4, 2, 0, -1.4, 252, 4), std({ color: '#a88660', map: plasterTex }), false, false));
+  // quay paving
+  const pave = new THREE.PlaneGeometry(90, 6).rotateX(-Math.PI / 2).translate(0, 0.02, 58.3);
+  const pt = brickTex.clone(); pt.needsUpdate = true; pt.repeat.set(45, 3);
+  world.add(mesh(pave, std({ map: pt }), false, true));
+}
+
+function buildRampart() {
+  const { rin, rout } = CITY, gap = 0.035;
+  const prof = [[rin, 0], [rin + 2.5, 6.6], [rin + 6, 7.6], [rout - 6, 7.6], [rout - 2, 6.2], [rout, 0]].map(p => new THREE.Vector2(p[0], p[1]));
+  const g = new THREE.LatheGeometry(prof, 160, gap, Math.PI * 2 - gap * 2);
+  const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 160, uv.getY(i) * 6);
+  g.translate(CITY.cx, 0, CITY.cz);
+  const m = mesh(g, M.rampart); M.rampart.side = THREE.DoubleSide; world.add(m);
+  // gate towers
+  for (const s of [-1, 1]) {
+    const a = s * (gap + 0.026), r = (rin + rout) / 2;
+    const t = mesh(box(5.2, 9.5, rout - rin + 3, 0, 4.75, 0, 3), M.terrace);
+    t.position.set(CITY.cx + Math.sin(a) * r, 0, CITY.cz + Math.cos(a) * r); t.rotation.y = a; world.add(t);
+  }
+  const lintel = mesh(box(6, 1.6, 4, 0, 8.2, CITY.cz + rout - 3, 2), M.wood); world.add(lintel);
+}
+
+function buildHouses() {
+  const houseGeos = [], doorGeos = [], beamGeos = [], matGeos = [];
+  const tints = ['#ffffff', '#f4ebe0', '#efe2cf', '#fbf3e6', '#e8dac4'];
+  const blocked = (x, z, r) => {
+    if (Math.abs(x) < 7.5 + r && z > -46) return true;
+    if (x > -30 - r && x < 30 + r && z > -106 - r && z < -38 + r) return true;
+    if (x > 5 - r && x < 28 + r && z > -30 - r && z < -10 + r) return true;
+    if (x > 6 - r && x < 25 + r && z > -5 - r && z < 13.5 + r) return true;
+    return Math.hypot(x - CITY.cx, z - CITY.cz) > CITY.rin - 5 - r;
+  };
+  for (let gz = -168; gz < 20; gz += 11.5) for (let gx = -92; gx < 92; gx += 11.5) {
+    if (R() < 0.05) continue;
+    const w = rr(7.5, 10.2), d = rr(7.5, 10.2), cx = gx + rr(-1.4, 1.4), cz = gz + rr(-1.4, 1.4), r = Math.max(w, d) / 2;
+    if (blocked(cx, cz, r)) continue;
+    const h = R() < 0.28 ? rr(5.8, 6.6) : rr(3.2, 3.8);
+    const col = tints[(R() * tints.length) | 0];
+    if (w > 8.6 && d > 8.6 && R() < 0.8) {
+      const t = 3.1;
+      houseGeos.push(tint(box(w, h, t, cx, h / 2, cz - d / 2 + t / 2), col), tint(box(w, h, t, cx, h / 2, cz + d / 2 - t / 2), col),
+        tint(box(t, h, d - 2 * t, cx - w / 2 + t / 2, h / 2, cz), col), tint(box(t, h * (R() < .5 ? 1 : 0.62), d - 2 * t, cx + w / 2 - t / 2, h * (R() < .5 ? .5 : .31), cz), col));
+    } else houseGeos.push(tint(box(w, h, d, cx, h / 2, cz), col));
+    addCol(cx - w / 2, cx + w / 2, cz - d / 2, cz + d / 2);
+    // door on the side facing the main street or south
+    const side = Math.abs(cx) < 30 ? (cx > 0 ? 3 : 2) : (R() < .5 ? 0 : (cx > 0 ? 3 : 2));
+    const off = rr(-1.5, 1.5);
+    if (side === 0) doorGeos.push(box(1.05, 1.95, 0.16, cx + off, 0.975, cz + d / 2 + 0.03, 1));
+    if (side === 2) doorGeos.push(box(0.16, 1.95, 1.05, cx + w / 2 + 0.03, 0.975, cz + off, 1));
+    if (side === 3) doorGeos.push(box(0.16, 1.95, 1.05, cx - w / 2 - 0.03, 0.975, cz + off, 1));
+    // roof beam ends poking out
+    const n = Math.floor(w / 0.9);
+    if (R() < 0.7) for (let i = 1; i < n; i++) {
+      const b = new THREE.CylinderGeometry(0.07, 0.07, 0.55, 6); b.rotateX(Math.PI / 2); b.translate(cx - w / 2 + i * w / n, h - 0.28, cz + d / 2 + 0.15); beamGeos.push(b);
+    }
+    // reed mats and a few jars on roofs
+    if (R() < 0.35) { const mw = rr(1.5, 3); matGeos.push(box(mw, 0.06, mw * 0.7, cx + rr(-w / 4, w / 4), h + 0.03, cz + rr(-d / 4, d / 4), 1)); }
+  }
+  world.add(mesh(mergeGeometries(houseGeos), M.house));
+  world.add(mesh(mergeGeometries(doorGeos), M.door, false, true));
+  world.add(mesh(mergeGeometries(beamGeos), M.wood));
+  if (matGeos.length) world.add(mesh(mergeGeometries(matGeos), M.mat));
+}
+
+// the courtyard house you can walk into
+function buildCourtyardHouse() {
+  const cx = 15, cz = 4, H1 = 3.7, H2 = 6.5, geos = [];
+  const add = (x0, x1, z0, z1, h) => { geos.push(box(x1 - x0, h, z1 - z0, cx + (x0 + x1) / 2, h / 2, cz + (z0 + z1) / 2)); addCol(cx + x0, cx + x1, cz + z0, cz + z1); };
+  add(-7, 7, -7, -3, H2);          // north rooms, two storeys
+  add(-7, 7, 3, 7, H1);            // south rooms
+  add(3, 7, -3, 3, H2);            // east rooms
+  add(-7, -3, -3, -0.85, H1);      // west rooms either side of the entrance passage
+  add(-7, -3, 0.85, 3, H1);
+  geos.push(box(4, H1 - 2.3, 1.7, cx - 5, 2.3 + (H1 - 2.3) / 2, cz, 4)); // lintel over the passage
+  const m = mesh(mergeGeometries(geos), groundAO(M.house.clone())); m.material.vertexColors = false; world.add(m);
+  // courtyard paving
+  const pv = brickTex.clone(); pv.needsUpdate = true; pv.repeat.set(3, 3);
+  const floor = mesh(new THREE.PlaneGeometry(6, 6).rotateX(-Math.PI / 2).translate(cx, 0.03, cz), std({ map: pv }), false, true);
+  world.add(floor); walkables.push(floor);
+  const pfloor = mesh(new THREE.PlaneGeometry(4, 1.7).rotateX(-Math.PI / 2).translate(cx - 5, 0.03, cz), std({ map: pv }), false, true);
+  world.add(pfloor);
+  // stair to the upper floor, along the north side of the court
+  const st = [];
+  for (let i = 0; i < 7; i++) st.push(box(0.5, 0.45 * (i + 1), 1.1, cx - 1.5 + i * 0.5, 0.225 * (i + 1), cz - 2.45, 1));
+  world.add(mesh(mergeGeometries(st), M.brick)); addCol(cx - 1.75, cx + 2, cz - 3, cz - 1.9);
+  // doors to the rooms off the court
+  const dg = [box(1, 1.9, 0.16, cx - 2.4, 0.95, cz - 2.98, 1), box(1, 1.9, 0.16, cx + 1.6, 0.95, cz + 2.98, 1), box(0.16, 1.9, 1, cx + 2.98, 0.95, cz + 0.4, 1)];
+  world.add(mesh(mergeGeometries(dg), M.door, false, true));
+  // household things
+  const j1 = jar(1.0, M.jar); j1.position.set(cx + 2.2, 0, cz + 2.2); world.add(j1);
+  const j2 = jar(0.7, M.jarPale); j2.position.set(cx + 1.6, 0, cz + 2.5); world.add(j2);
+  const hearth = mesh(new THREE.CylinderGeometry(0.5, 0.55, 0.18, 14), M.clay); hearth.position.set(cx - 1.6, 0.09, cz + 1.8); world.add(hearth);
+  return floor;
+}
+
+function jar(s = 1, mat = M.jar) {
+  const p = [[0, 0], [0.16, 0], [0.28, 0.12], [0.35, 0.42], [0.31, 0.72], [0.15, 0.88], [0.11, 0.95], [0.14, 1.0], [0.1, 1.0]].map(v => new THREE.Vector2(v[0], v[1]));
+  const m = mesh(new THREE.LatheGeometry(p, 18), mat); m.scale.setScalar(s); return m;
+}
+function bale(w = 1, h = 0.7, d = 0.7) {
+  const g = new THREE.Group();
+  g.add(mesh(box(w, h, d, 0, h / 2, 0, 1), M.reed));
+  for (const x of [-w * 0.28, w * 0.28]) g.add(mesh(box(0.06, h + 0.02, d + 0.02, x, h / 2, 0, 1), M.rope, false));
+  g.add(mesh(box(w + 0.02, 0.06, d + 0.02, 0, h * 0.55, 0, 1), M.rope, false));
+  return g;
+}
+
+function buildTemple() {
+  const geos = [], T = TERRACE;
+  geos.push(box(T.x1 - T.x0, T.h, T.z1 - T.z0, 0, T.h / 2, (T.z0 + T.z1) / 2, 4));
+  for (let x = T.x0 + 1.5; x < T.x1 - 1; x += 3) { geos.push(box(1.3, T.h, 0.6, x, T.h / 2, T.z1 + 0.3, 4), box(1.3, T.h, 0.6, x, T.h / 2, T.z0 - 0.3, 4)); }
+  for (let z = T.z0 + 1.5; z < T.z1 - 1; z += 3) { geos.push(box(0.6, T.h, 1.3, T.x0 - 0.3, T.h / 2, z, 4), box(0.6, T.h, 1.3, T.x1 + 0.3, T.h / 2, z, 4)); }
+  world.add(mesh(mergeGeometries(geos), M.terrace));
+  addCol(T.x0 - 0.6, T.x1 + 0.6, T.z0 - 0.6, T.z1 + 0.6, 0);
+  const top = mesh(new THREE.PlaneGeometry(T.x1 - T.x0, T.z1 - T.z0).rotateX(-Math.PI / 2).translate(0, T.h + 0.02, (T.z0 + T.z1) / 2),
+    std({ map: (() => { const t = brickTex.clone(); t.needsUpdate = true; t.repeat.set(22, 17); return t; })() }), false, true);
+  world.add(top); walkables.push(top);
+  // ramp
+  const sh = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(18, 0), new THREE.Vector2(0, T.h)]);
+  const rg = new THREE.ExtrudeGeometry(sh, { depth: 6, bevelEnabled: false });
+  rg.rotateY(-Math.PI / 2); rg.translate(3, 0, RAMP.zTop);
+  const uv = rg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 2, uv.getY(i) / 2);
+  const ramp = mesh(rg, M.brick); world.add(ramp); walkables.push(ramp);
+  // ramp side walls (collide from the ground)
+  addCol(RAMP.x0 - 0.4, RAMP.x0, RAMP.zTop, RAMP.zBot - 1.6); addCol(RAMP.x1, RAMP.x1 + 0.4, RAMP.zTop, RAMP.zBot - 1.6);
+  // the temple: buttressed walls, whitewashed
+  const tg = [], x0 = -11, x1 = 11, z0 = -90, z1 = -76, h = 8, y = T.h;
+  tg.push(box(x1 - x0, h, z1 - z0, 0, y + h / 2, (z0 + z1) / 2, 4));
+  for (let x = x0 + 1; x <= x1 - 1; x += 2) if (Math.abs(x) > 1.8) tg.push(box(0.9, h, 0.45, x, y + h / 2, z1 + 0.22, 4));
+  for (let x = x0 + 1; x <= x1 - 1; x += 2) tg.push(box(0.9, h, 0.45, x, y + h / 2, z0 - 0.22, 4));
+  for (let z = z0 + 1; z <= z1 - 1; z += 2) tg.push(box(0.45, h, 0.9, x0 - 0.22, y + h / 2, z, 4), box(0.45, h, 0.9, x1 + 0.22, y + h / 2, z, 4));
+  tg.push(box(x1 - x0 + 1.4, 0.5, z1 - z0 + 1.4, 0, y + h + 0.25, (z0 + z1) / 2, 4));
+  world.add(mesh(mergeGeometries(tg), M.temple));
+  world.add(mesh(box(2.4, 4.2, 0.3, 0, y + 2.1, z1 + 0.12, 1), M.door, false));
+  addCol(x0 - 0.5, x1 + 0.5, z0 - 0.5, z1 + 0.5, 1);
+  // offering table and jars before the door
+  const tbl = mesh(box(1.6, 0.8, 0.8, -3.2, y + 0.4, z1 + 2.2, 1), M.terrace); world.add(tbl); addCol(-4.1, -2.3, z1 + 1.7, z1 + 2.7, 1);
+  for (let i = 0; i < 3; i++) { const j = jar(0.55, i % 2 ? M.jarPale : M.jar); j.position.set(-3.7 + i * 0.5, y + 0.8, z1 + 2.2); world.add(j); }
+  return { top, ramp };
+}
+
+// ---------- palms (instanced) ----------
+function buildPalms(spots) {
+  const H = 9;
+  const tr = new THREE.CylinderGeometry(0.2, 0.3, H, 10, 12, true); tr.translate(0, H / 2, 0);
+  const p = tr.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i) / H; p.setX(i, p.getX(i) + 0.45 * y * y); }
+  tr.computeVertexNormals();
+  const fr = [];
+  for (let i = 0; i < 18; i++) {
+    const L = rr(3.6, 4.6), f = new THREE.PlaneGeometry(L, 1.15, 12, 2); f.translate(L / 2, 0, 0); f.rotateX(-Math.PI / 2);
+    const droop = i < 6 ? rr(0.16, 0.24) : rr(0.07, 0.12), lift = i < 6 ? 0.1 : rr(0.35, 0.65);
+    const q = f.attributes.position;
+    for (let k = 0; k < q.count; k++) { const x = q.getX(k), z = q.getZ(k); q.setY(k, lift * x - droop * x * x + Math.abs(z) * 0.28); }
+    f.rotateY(i * 2.4 + rr(-0.2, 0.2)); f.translate(0.45, H, 0); fr.push(f);
+  }
+  const fronds = mergeGeometries(fr); fronds.computeVertexNormals();
+  const ti = new THREE.InstancedMesh(tr, M.bark, spots.length), fi = new THREE.InstancedMesh(fronds, M.frond, spots.length);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), e = new THREE.Euler();
+  spots.forEach((sp, i) => {
+    const sc = sp[2] || rr(0.75, 1.15); e.set(rr(-0.05, 0.05), rr(0, 6.28), rr(-0.05, 0.05)); q.setFromEuler(e); s.set(sc, sc, sc);
+    m.compose(new THREE.Vector3(sp[0], sp[3] || 0, sp[1]), q, s); ti.setMatrixAt(i, m); fi.setMatrixAt(i, m);
+  });
+  ti.castShadow = fi.castShadow = true; ti.receiveShadow = true;
+  world.add(ti, fi);
+}
+
+// ---------- people ----------
+function person(o) {
+  const g = new THREE.Group(), parts = {};
+  const skin = std({ color: o.skin || '#8a5a3b', roughness: 0.65 });
+  const hip = 0.92;
+  const legG = new THREE.CylinderGeometry(0.068, 0.052, 0.86, 8); legG.translate(0, -0.43, 0);
+  const footG = new THREE.BoxGeometry(0.1, 0.06, 0.25); footG.translate(0, -0.86, 0.05);
+  for (const s of [-1, 1]) {
+    const p = new THREE.Group(); p.position.set(0.1 * s, hip, 0);
+    p.add(mesh(legG, skin), mesh(footG, skin)); g.add(p); parts[s < 0 ? 'legL' : 'legR'] = p;
+  }
+  const len = o.long ? 0.84 : 0.46;
+  const sk = new THREE.CylinderGeometry(0.2, o.long ? 0.28 : 0.25, len, 16, 1, true); sk.translate(0, hip + 0.06 - len / 2, 0);
+  g.add(mesh(sk, o.lower));
+  const torso = new THREE.CylinderGeometry(0.19, 0.165, 0.56, 14); torso.scale(1, 1, 0.72); torso.translate(0, hip + 0.31, 0);
+  g.add(mesh(torso, o.upper || skin));
+  const sh = new THREE.SphereGeometry(0.2, 14, 8); sh.scale(1.18, 0.5, 0.74); sh.translate(0, hip + 0.57, 0);
+  g.add(mesh(sh, o.upper || skin));
+  if (o.cloak) {
+    const c = new THREE.CylinderGeometry(0.232, 0.25, 0.62, 18, 1, true, -0.3, 4.6); c.scale(1, 1, 0.78); c.rotateZ(0.42); c.translate(0.02, hip + 0.33, 0);
+    g.add(mesh(c, o.cloak));
+  }
+  const neck = new THREE.CylinderGeometry(0.05, 0.055, 0.12, 8); neck.translate(0, hip + 0.68, 0); g.add(mesh(neck, skin));
+  const headY = hip + 0.8;
+  const head = new THREE.SphereGeometry(0.112, 18, 14); head.scale(0.92, 1.06, 1); head.translate(0, headY, 0); g.add(mesh(head, skin));
+  const nose = new THREE.BoxGeometry(0.03, 0.05, 0.04); nose.translate(0, headY - 0.01, 0.11); g.add(mesh(nose, skin, false));
+  for (const s of [-1, 1]) { const e = new THREE.SphereGeometry(0.013, 6, 4); e.translate(0.038 * s, headY + 0.025, 0.098); g.add(mesh(e, M.dark, false)); }
+  if (!o.bald) { const hc = new THREE.SphereGeometry(0.12, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.52); hc.scale(0.95, 1.05, 1.05); hc.translate(0, headY + 0.008, -0.008); g.add(mesh(hc, M.hair)); }
+  if (o.bun) { const b = new THREE.SphereGeometry(0.06, 10, 8); b.translate(0, headY - 0.02, -0.12); g.add(mesh(b, M.hair)); }
+  if (o.headband) { const t = new THREE.TorusGeometry(0.117, 0.014, 6, 24); t.rotateX(Math.PI / 2); t.translate(0, headY + 0.045, 0); g.add(mesh(t, std({ color: o.headband }), false)); }
+  if (o.beard) { const b = new THREE.SphereGeometry(0.085, 10, 8); b.scale(0.95, o.beard, 0.62); b.translate(0, headY - 0.085 - (o.beard - 1) * 0.05, 0.05); g.add(mesh(b, M.hair)); }
+  if (o.cap) { const t = new THREE.TorusGeometry(0.12, 0.035, 8, 24); t.rotateX(Math.PI / 2); t.translate(0, headY + 0.06, 0); g.add(mesh(t, o.cap)); const cy = new THREE.CylinderGeometry(0.1, 0.11, 0.08, 16); cy.translate(0, headY + 0.1, 0); g.add(mesh(cy, o.cap)); }
+  const armG = new THREE.CylinderGeometry(0.052, 0.043, 0.62, 8); armG.translate(0, -0.31, 0);
+  const handG = new THREE.SphereGeometry(0.048, 8, 6); handG.translate(0, -0.65, 0.01);
+  for (const s of [-1, 1]) {
+    const p = new THREE.Group(); p.position.set(0.25 * s, hip + 0.55, 0); p.rotation.z = 0.06 * s;
+    const sleeve = o.sleeve && s === -1 ? o.sleeve : skin;
+    p.add(mesh(armG, sleeve), mesh(handG, skin)); g.add(p); parts[s < 0 ? 'armL' : 'armR'] = p;
+  }
+  if (o.bracelet) { const b = new THREE.TorusGeometry(0.05, 0.012, 6, 14); b.rotateX(Math.PI / 2); b.translate(0, -0.55, 0); parts.armR.add(mesh(b, std({ color: '#d8c8a8' }), false)); }
+  if (o.necklace) { const n = new THREE.TorusGeometry(0.13, 0.012, 6, 20); n.rotateX(Math.PI / 2 - 0.35); n.translate(0, hip + 0.6, 0.03); g.add(mesh(n, M.carnelian, false)); }
+  g.userData = { parts, phase: R() * 6, bob: 0 };
+  return g;
+}
+function sit(p, lower = 0.48) {
+  const { legL, legR } = p.userData.parts;
+  legL.rotation.set(-1.5, 0, -0.35); legR.rotation.set(-1.5, 0, 0.35);
+  p.userData.sitOffset = -lower;
+}
+function animWalk(p, dt, speed) {
+  const u = p.userData, P = u.parts; const amt = clamp(speed / 2.2, 0, 1.4);
+  u.phase += dt * (3.2 + speed * 2.2) * (amt > 0.02 ? 1 : 0);
+  const s = Math.sin(u.phase) * 0.55 * amt;
+  P.legL.rotation.x = s; P.legR.rotation.x = -s;
+  if (!u.carry) { P.armL.rotation.x = -s * 0.8; P.armR.rotation.x = s * 0.8; }
+  u.bob = Math.abs(Math.cos(u.phase)) * 0.035 * amt;
+  if (amt <= 0.02) { P.legL.rotation.x *= 0.8; P.legR.rotation.x *= 0.8; if (!u.carry) { P.armL.rotation.x *= 0.85; P.armR.rotation.x *= 0.85; } }
+}
+
+const people = [];
+function placePerson(p, x, z, rotY = 0, y = 0) { p.position.set(x, y + (p.userData.sitOffset || 0), z); p.rotation.y = rotY; world.add(p); people.push(p); return p; }
+
+function donkey() {
+  const g = new THREE.Group();
+  const body = new THREE.CapsuleGeometry(0.3, 0.75, 6, 12); body.rotateZ(Math.PI / 2); body.translate(0, 1.0, 0); g.add(mesh(body, M.donkey));
+  const belly = new THREE.SphereGeometry(0.26, 10, 8); belly.scale(1.6, 0.6, 0.9); belly.translate(0, 0.86, 0); g.add(mesh(belly, M.donkeyPale));
+  for (const [x, z] of [[0.42, 0.16], [0.42, -0.16], [-0.42, 0.16], [-0.42, -0.16]]) { const l = new THREE.CylinderGeometry(0.06, 0.045, 0.8, 8); l.translate(x, 0.4, z); g.add(mesh(l, M.donkey)); }
+  const neck = new THREE.CylinderGeometry(0.12, 0.17, 0.6, 10); neck.rotateZ(-0.85); neck.translate(0.68, 1.3, 0); g.add(mesh(neck, M.donkey));
+  const head = new THREE.CapsuleGeometry(0.11, 0.32, 4, 10); head.rotateZ(-2.2); head.translate(0.98, 1.38, 0); g.add(mesh(head, M.donkey));
+  const muzzle = new THREE.SphereGeometry(0.1, 8, 6); muzzle.translate(1.12, 1.2, 0); g.add(mesh(muzzle, M.donkeyPale));
+  for (const s of [-1, 1]) { const e = new THREE.ConeGeometry(0.045, 0.3, 6); e.translate(0.86, 1.72, 0.07 * s); g.add(mesh(e, M.donkey)); }
+  const tail = new THREE.CylinderGeometry(0.02, 0.03, 0.55, 5); tail.rotateZ(0.25); tail.translate(-0.72, 0.85, 0); g.add(mesh(tail, M.donkey));
+  for (const s of [-1, 1]) g.add(mesh(box(0.6, 0.45, 0.22, 0, 1.02, 0.36 * s, 1), M.reed));
+  g.add(mesh(box(0.7, 0.08, 0.8, 0, 1.31, 0, 1), M.wool));
+  return g;
+}
+
+function reedBoat(L = 7) {
+  const g = []; const sec = [[0, -0.15], [0.32, 0], [-0.32, 0], [0.45, 0.3], [-0.45, 0.3]];
+  for (const [zz, yy] of sec) {
+    const pts = []; for (let k = 0; k <= 16; k++) { const t = k / 16 * 2 - 1, tp = 1 - Math.pow(Math.abs(t), 2.5); pts.push(new THREE.Vector3(t * L / 2, 1.1 * Math.pow(Math.abs(t), 4) + yy * tp, zz * tp)); }
+    g.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 32, 0.17, 7, false));
+  }
+  return mesh(mergeGeometries(g), M.reed);
+}
+
+function ship() {
+  const g = new THREE.Group(), L = 18, geos = [];
+  const sec = [[0, -0.55], [0.45, -0.5], [-0.45, -0.5], [0.9, -0.33], [-0.9, -0.33], [1.3, -0.06], [-1.3, -0.06], [1.55, 0.3], [-1.55, 0.3], [1.65, 0.7], [-1.65, 0.7], [1.6, 1.08], [-1.6, 1.08]];
+  for (const [zz, yy] of sec) {
+    const pts = [];
+    for (let k = 0; k <= 30; k++) {
+      const t = k / 30 * 2 - 1, a = Math.abs(t), tp = 1 - Math.pow(a, 2.6);
+      const rise = (t > 0 ? 3.4 : 2.6) * Math.pow(a, 4.5);
+      pts.push(new THREE.Vector3(t * L / 2 - (t > 0 ? 0.6 : -0.4) * Math.pow(a, 6), rise + yy * tp, zz * tp));
+    }
+    geos.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 90, 0.25, 8, false));
+  }
+  g.add(mesh(mergeGeometries(geos), M.bitumen));
+  for (let x = -6; x <= 6; x += 1.5) { const t = new THREE.TorusGeometry(1.45, 0.045, 5, 24, Math.PI); t.rotateY(Math.PI / 2); t.rotateX(Math.PI); t.scale(1, 0.85, 1.12); t.translate(x, 1.05, 0); g.add(mesh(t, M.rope, false)); }
+  g.add(mesh(box(11, 0.12, 2.6, 0, 0.42, 0, 1.5), M.wood));
+  const mast = new THREE.CylinderGeometry(0.1, 0.14, 9.5, 8); mast.translate(0.8, 0.45 + 4.75, 0); g.add(mesh(mast, M.wood));
+  const yard = new THREE.CylinderGeometry(0.07, 0.07, 7.4, 6); yard.rotateX(Math.PI / 2); yard.translate(0.8, 8.9, 0); g.add(mesh(yard, M.wood));
+  const furl = new THREE.CylinderGeometry(0.24, 0.24, 6.8, 10); furl.rotateX(Math.PI / 2); furl.translate(0.8, 8.62, 0); g.add(mesh(furl, M.sail));
+  const stay = (a, b) => { const c = new THREE.LineCurve3(a, b); g.add(mesh(new THREE.TubeGeometry(c, 1, 0.02, 4), M.rope, false)); };
+  stay(new THREE.Vector3(0.8, 9.6, 0), new THREE.Vector3(8.6, 3.1, 0)); stay(new THREE.Vector3(0.8, 9.6, 0), new THREE.Vector3(-8.7, 2.4, 0));
+  stay(new THREE.Vector3(0.8, 9.6, 0), new THREE.Vector3(0.8, 1.3, 1.6)); stay(new THREE.Vector3(0.8, 9.6, 0), new THREE.Vector3(0.8, 1.3, -1.6));
+  // reed cabin aft and cargo
+  const cab = new THREE.CylinderGeometry(1.1, 1.1, 2.6, 14, 1, false, 0, Math.PI); cab.rotateZ(Math.PI / 2); cab.rotateY(Math.PI / 2); cab.rotateY(Math.PI / 2); cab.translate(-4.5, 0.48, 0);
+  g.add(mesh(cab, M.mat));
+  for (const [x, z] of [[3.3, 0.5], [3.3, -0.6], [4.4, 0], [-1.5, 0.6], [-1.5, -0.5]]) { const b = bale(0.9, 0.6, 0.7); b.position.set(x, 0.48, z); g.add(b); }
+  return g;
+}
+
+function rope(a, b, sag = 0.6) {
+  const mid = a.clone().lerp(b, 0.5); mid.y -= sag;
+  return mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, mid, b), 12, 0.035, 5), M.rope, false);
+}
+
+// ---------- hotspots ----------
+const HS = {};
+const markerTex = (found) => {
+  const [c, g] = makeCanvas(128); g.beginPath(); g.arc(64, 64, 50, 0, 7);
+  g.fillStyle = found ? 'rgba(232,195,90,0.95)' : 'rgba(16,26,51,0.88)'; g.fill();
+  g.lineWidth = 9; g.strokeStyle = found ? '#fff4d0' : '#e8c35a'; g.stroke();
+  g.fillStyle = found ? '#101a33' : '#fff4d6'; g.font = 'bold 62px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('i', 64, 68);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+};
+const MK = { open: markerTex(false), found: markerTex(true) };
+let found = new Set();
+try { found = new Set(JSON.parse(localStorage.getItem('ur-found') || '[]')); } catch (e) { }
+
+function hotspot(id, pos, opts = {}) {
+  const sm = new THREE.SpriteMaterial({ map: found.has(id) ? MK.found : MK.open, depthTest: true, depthWrite: false, sizeAttenuation: false, transparent: true });
+  const sp = new THREE.Sprite(sm); sp.scale.set(0.042, 0.042, 1); sp.position.copy(pos); sp.renderOrder = 10;
+  sp.userData.hotspot = id; world.add(sp); clickables.push(sp);
+  HS[id] = Object.assign({ id, pos: pos.clone(), sprite: sp, dist: 4, pitch: 0.35, yaw: null, objs: [] }, INFO[id], opts);
+  for (const o of HS[id].objs) { o.traverse(c => { if (c.isMesh) { c.userData.hotspot = id; clickables.push(c); } }); }
+}
+
+// Content: kept short and tied to real finds. tag: ev = direct evidence, later = evidence from a later period, rec = reconstruction
+const INFO = {
+  ship: { title: 'A ship from Meluhha', tag: 'rec', where: 'Quay',
+    body: ['Sea-going boats in the Gulf were built from bundles of reeds lashed together and coated with bitumen. At Ra’s al-Jinz in Oman, archaeologists found hundreds of bitumen slabs from such boats, still marked with the imprints of reeds and ropes, and with barnacles on the outside.',
+      'Around 2300 BCE, Sargon of Akkad boasted that ships from Meluhha, Magan and Dilmun moored at the quay of his capital, Agade.'],
+    evidence: '<b>Known:</b> reed-and-bitumen hulls, Sargon’s inscription, Indus seals showing boats with high ends and a cabin. <b>Not known:</b> the exact rig and size of an Indus ship; the mast and sail here are a careful guess.',
+    src: 'Sargon of Akkad, royal inscription (Frayne, RIME 2); Cleuziou & Tosi, Ra’s al-Jinz excavations.' },
+  merchants: { title: 'The men of Meluhha', tag: 'ev', where: 'With you',
+    body: ['Meluhha is what Mesopotamian texts call a land far to the east, which most scholars identify with the Indus civilisation, in today’s Pakistan and north-west India.',
+      'Some Meluhhans lived in Mesopotamia. A cylinder seal of the Akkadian period belonged to Shu-ilishu, an “interpreter of the Meluhhan language”, and later texts from Lagash mention a “Meluhha village”.',
+      'Their clothes follow Indus art: the “priest-king” statue from Mohenjo-daro wears a headband and a cloak over one shoulder, decorated with trefoils that were once filled with red paste. The Indus valley is one of the first places where cotton was grown and woven.'],
+    evidence: '<b>Known:</b> the name Meluhha, the interpreter’s seal, the priest-king statue. <b>Reconstruction:</b> faces, colours and the exact cut of their clothes.',
+    src: 'Seal of Shu-ilishu, Louvre AO 22310; “priest-king”, National Museum of Pakistan, Karachi.' },
+  kar: { title: 'The quay: where business was done', tag: 'ev', where: 'Quay',
+    body: ['In a Sumerian city, trade with outsiders happened at the kar, the quay district by the water. Merchants (Sumerian damgar) worked here for the temple and the palace, and for themselves.',
+      'Mesopotamia had no stone, no metal and little good timber, so almost everything hard and precious had to come in by boat.'],
+    evidence: '<b>Known:</b> the kar as the trading district appears in many cuneiform texts. <b>Reconstruction:</b> what Ur’s quay looked like in 2300 BCE; its brick edge here is modelled on later harbour walls.',
+    src: 'Cuneiform economic texts; A. L. Oppenheim, “The Seafaring Merchants of Ur” (1954).' },
+  weights: { title: 'Cube-shaped stone weights', tag: 'ev', where: 'Trading mat',
+    body: ['Indus traders weighed goods with small polished cubes of stone, usually chert. They form a standard series: the weights double (1, 2, 4, 8, 16, 32, 64) and then rise in decimal steps. The most common one, the “16”, weighs about 13.7 grams.',
+      'Dilmun, the trading hub on Bahrain, used the same Indus standard, which shows how far the Indus system reached.'],
+    evidence: '<b>Known:</b> hundreds of these weights from Indus cities, and Indus-standard weights in the Gulf. They are tiny: the ones on the mat are shown at real size.',
+    src: 'Kenoyer, “Ancient Cities of the Indus Valley Civilization” (1998); Højlund, Qala’at al-Bahrain excavations.' },
+  beads: { title: 'Etched carnelian beads', tag: 'ev', where: 'Trading mat',
+    body: ['Indus craftsmen bleached white patterns into red carnelian with an alkaline paste and heat. They also drilled very long carnelian beads, a job that could take days for a single bead.',
+      'Beads like these were found in the Royal Cemetery of Ur (about 2600–2450 BCE), including in the tomb of Queen Puabi. They are some of the clearest physical proof of contact between Ur and the Indus.'],
+    evidence: '<b>Known:</b> etched and long carnelian beads from Ur’s Royal Cemetery, now in the Penn Museum and the British Museum.',
+    src: 'Woolley, “Ur Excavations II: The Royal Cemetery” (1934); Penn Museum, Puabi collection.' },
+  seal: { title: 'An Indus seal and its sealing', tag: 'ev', where: 'Scribe',
+    body: ['Indus seals are small squares of fired steatite, about 2 to 3 cm across, carved with an animal, most often a one-horned bull, and a line of signs in the Indus script, which nobody can read today.',
+      'Pressed into a lump of clay over the cord of a bale, the seal showed who sent the goods and that the bale had not been opened on the way.',
+      'Several seals in Indus style were found at Ur itself.'],
+    evidence: '<b>Known:</b> Indus-style seals excavated at Ur and other Mesopotamian cities.',
+    src: 'C. J. Gadd, “Seals of Ancient Indian Style Found at Ur” (1932).' },
+  scribe: { title: 'A scribe and his clay tablet', tag: 'ev', where: 'Scribe',
+    body: ['Scribes wrote by pressing a cut reed into damp clay, leaving wedge-shaped marks: cuneiform. Under the Akkadian kings, records were kept in Sumerian and in Akkadian.',
+      'At Ur, archaeologists found many merchants’ tablets. The most famous is about 550 years later: a customer called Nanni complains to the merchant Ea-nasir that the copper he delivered was poor and he was treated rudely.'],
+    evidence: '<b>Known:</b> thousands of tablets from Ur. <b>Later evidence:</b> the Ea-nasir letter dates to about 1750 BCE.',
+    src: 'Letter of Nanni to Ea-nasir, British Museum 131236.' },
+  goods: { title: 'What Ur paid with', tag: 'ev', where: 'Quay',
+    body: ['Ur paid for imports with what southern Mesopotamia had plenty of: woollen textiles, barley, sesame oil, dates and silver gained through trade.',
+      'In return came copper from Magan (Oman), carnelian, ivory and fine wood from Meluhha, and lapis lazuli from Afghanistan, which often travelled through Indus hands.'],
+    evidence: '<b>Known:</b> lists of goods in cuneiform texts, and the imported materials themselves found in Ur’s graves and houses.',
+    src: 'Oppenheim (1954); Potts, “The Arabian Gulf in Antiquity” (1990).' },
+  donkey: { title: 'Donkeys, not camels', tag: 'ev', where: 'Quay',
+    body: ['Goods moved overland on donkeys. Camels were not used here for more than another thousand years, and horses were still rare.',
+      'Heavy loads also went by wagon with solid wooden wheels, pulled by donkeys or donkey hybrids, as shown on the Standard of Ur.'],
+    evidence: '<b>Known:</b> the Standard of Ur (about 2500 BCE, British Museum) and animal bones from Mesopotamian sites.',
+    src: 'Standard of Ur, British Museum 121201.' },
+  palm: { title: 'Date palms', tag: 'ev', where: 'River bank',
+    body: ['Dates were a staple food of southern Mesopotamia, eaten fresh or dried and made into syrup. The palm also gave trunks for roof beams, fronds for mats and baskets, and fibre for rope.',
+      'Gardens of date palms lined the rivers and canals, with vegetables grown in their shade.'],
+    evidence: '<b>Known:</b> dates and palm products appear constantly in cuneiform records and in excavated plant remains.',
+    src: 'Postgate, “Early Mesopotamia” (1992).' },
+  rampart: { title: 'The city wall', tag: 'rec', where: 'City gate',
+    body: ['Ur was enclosed by a great sloping rampart of mudbrick, with harbours on the water side. At its largest the walled city was about a kilometre long. In this model it is about a fifth of that size.',
+      'The rampart that Leonard Woolley excavated was rebuilt by King Ur-Nammu around 2100 BCE. What the defences looked like in 2300 BCE is not known, so this wall is modelled on the later one.'],
+    evidence: '<b>Known:</b> the shape and size of the later rampart. <b>Reconstruction:</b> the wall and gate as they stood in Sargon’s time.',
+    src: 'Woolley, “Ur Excavations V: The Ziggurat and its Surroundings” (1939).' },
+  house: { title: 'A courtyard house', tag: 'later', where: 'Main street',
+    body: ['Walk in through the door. Houses in Ur were built around an open central courtyard that gave light and air. The walls facing the street were blank, with a single door.',
+      'Many houses had a stair to the roof or an upper floor, a room for guests, and a small family chapel. The dead were often buried under the floor of the house.'],
+    evidence: '<b>Later evidence:</b> the houses Woolley excavated date to about 1900–1750 BCE, some 400 years after this scene. The courtyard plan is much older, but no house of Sargon’s time has been excavated at Ur.',
+    src: 'Woolley & Mallowan, “Ur Excavations VII: The Old Babylonian Period” (1976).' },
+  oven: { title: 'Bread and grain', tag: 'ev', where: 'Small square',
+    body: ['Barley was the main crop. It was ground by hand on a saddle quern, a flat stone rubbed with a smaller stone, and baked into flat bread slapped onto the inside wall of a clay oven, the tannur. The same kind of oven is still used across the region today.',
+      'Barley was also brewed into beer, which everyone drank every day. Workers were often paid in barley, bread and beer.'],
+    evidence: '<b>Known:</b> querns and ovens are found at almost every Mesopotamian site; ration lists record barley and beer.',
+    src: 'Postgate (1992); ration texts from Ur and Lagash.' },
+  temple: { title: 'The temple of Nanna', tag: 'rec', where: 'Temple terrace',
+    body: ['Ur’s patron was Nanna, the moon god (Sin in Akkadian). His temple stood on a raised brick terrace in the sacred area. Temple walls were decorated with buttresses and recesses, a mark of Mesopotamian sacred buildings.',
+      'The famous ziggurat that still stands at Ur was built later, by Ur-Nammu around 2100 BCE, on top of the older terrace. In 2300 BCE it did not exist yet.'],
+    evidence: '<b>Known:</b> earlier terrace levels under the ziggurat, and buttressed temple walls elsewhere in Sumer. <b>Reconstruction:</b> the exact shape of this temple.',
+    src: 'Woolley, Ur Excavations V (1939).' },
+  priestess: { title: 'Enheduanna, high priestess', tag: 'ev', where: 'Temple terrace',
+    body: ['Around 2300 BCE the high priestess of Nanna at Ur was Enheduanna, a daughter of Sargon of Akkad. She lived in the giparu, the priestess’s residence beside the temple.',
+      'Hymns credited to her make her the earliest author in history known by name.',
+      'Woolley found a limestone disc at Ur showing her at an offering, in a flounced robe and a round cap with a rolled brim, the outfit shown here.'],
+    evidence: '<b>Known:</b> the Disk of Enheduanna, with her name and title, found in the giparu at Ur.',
+    src: 'Disk of Enheduanna, Penn Museum B16665.' },
+};
+
+// ---------- build everything ----------
+const npc = [];
+let leader, follower, ramp, terraceTop, courtFloor;
+
+async function build() {
+  loadText('Laying out the plain and the river…'); await frame();
+  buildLand(); buildRampart();
+  loadText('Building houses…'); await frame();
+  buildHouses(); courtFloor = buildCourtyardHouse();
+  loadText('Raising the temple terrace…'); await frame();
+  ({ top: terraceTop, ramp } = buildTemple());
+
+  loadText('Planting date palms…'); await frame();
+  const palms = [];
+  const pr = rng(31);
+  for (let i = 0; i < 26; i++) palms.push([(pr() < .5 ? -1 : 1) * (32 + pr() * 40), 30 + pr() * 22]);
+  palms.push([-27, 57, 1.1], [28, 56, 1.0], [22, -18, 0.9]);
+  for (let i = 0; i < 70; i++) { const x = -500 + pr() * 1000; palms.push([x, 262 + pr() * 40]); }
+  for (let i = 0; i < 160; i++) { const a = pr() * 6.28, d = CITY.rout + 18 + pr() * 120, x = CITY.cx + Math.sin(a) * d, z = CITY.cz + Math.cos(a) * d; if (z < 12) palms.push([x, z]); }
+  buildPalms(palms);
+
+  loadText('The ship comes in…'); await frame();
+  const sh = ship(); sh.position.set(3, -0.95, 66.6); world.add(sh); world.userData.ship = sh;
+  for (const [x, z] of [[-4, 60.7], [11, 60.7]]) { const p = mesh(new THREE.CylinderGeometry(0.16, 0.18, 1.1, 8).translate(0, 0.55, 0), M.wood); p.position.set(x, 0, z); world.add(p); addCol(x - 0.2, x + 0.2, z - 0.2, z + 0.2); }
+  world.add(rope(new THREE.Vector3(-4, 1, 60.7), new THREE.Vector3(-4.5, 0.7, 65.2)), rope(new THREE.Vector3(11, 1, 60.7), new THREE.Vector3(10.6, 0.8, 65.4)));
+  const b1 = reedBoat(7); b1.position.set(-32, -0.95, 68); b1.rotation.y = 0.15; world.add(b1);
+  const b2 = reedBoat(6); b2.position.set(38, -0.95, 70); b2.rotation.y = -0.2; world.add(b2);
+  const b3 = reedBoat(8); b3.position.set(-60, -0.95, 90); b3.rotation.y = 0.6; world.add(b3);
+
+  loadText('Setting out the goods…'); await frame();
+  const balesA = new THREE.Group();
+  for (const [x, z, s] of [[0, 0, 1], [1.05, 0.1, 1], [0.5, 0.05, 1, 1], [-1.0, 0.8, 1], [0.1, 1.0, 1]]) { const b = bale(1, 0.7, 0.75); b.position.set(x, 0, z); balesA.add(b); }
+  const top1 = bale(1, 0.7, 0.75); top1.position.set(0.5, 0.7, 0.05); balesA.add(top1);
+  balesA.position.set(14, 0, 46.5); world.add(balesA); addCol(12.6, 15.8, 46, 48);
+  const balesB = new THREE.Group(); for (let i = 0; i < 6; i++) { const b = bale(1, 0.7, 0.75); b.position.set((i % 3) * 1.05, Math.floor(i / 3) * 0.7, 0); balesB.add(b); }
+  balesB.position.set(-26, 0, 53); world.add(balesB); addCol(-26.6, -23.4, 52.5, 53.5);
+  const jars = new THREE.Group();
+  for (let i = 0; i < 9; i++) { const j = jar(rr(0.75, 1.15), i % 3 ? M.jar : M.jarPale); j.position.set((i % 3) * 0.75 + rr(-.1, .1), 0, Math.floor(i / 3) * 0.75); jars.add(j); }
+  jars.position.set(19, 0, 51); world.add(jars); addCol(18.6, 21.2, 50.6, 53.2);
+
+  // trading mat
+  const mat = mesh(box(3.2, 0.03, 2.3, 0, 0.015, 0, 1), M.mat, false, true); mat.position.set(-14, 0, 50.3); world.add(mat);
+  const bal = new THREE.Group();
+  bal.add(mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.55, 6).translate(0, 0.275, 0), M.wood));
+  bal.add(mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 6).rotateZ(Math.PI / 2).translate(0, 0.55, 0), M.wood));
+  for (const s of [-1, 1]) { bal.add(mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.32, 3).translate(0.29 * s, 0.39, 0), M.rope, false)); bal.add(mesh(new THREE.CylinderGeometry(0.09, 0.07, 0.025, 14).translate(0.29 * s, 0.23, 0), M.wood)); }
+  bal.position.set(-14.1, 0.03, 50.2); world.add(bal);
+  const weights = new THREE.Group();
+  for (const [x, z, s] of [[0, 0, 0.022], [0.06, 0.01, 0.017], [0.11, -0.01, 0.013], [0.15, 0, 0.01]]) weights.add(mesh(box(s, s, s, x, s / 2, z, 1), M.chert, false));
+  weights.position.set(-14.75, 0.03, 50.55); world.add(weights);
+  const beads = new THREE.Group();
+  for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 1.6; const bd = mesh(new THREE.SphereGeometry(i % 4 ? 0.012 : 0.02, 8, 6).scale(1.6, 1, 1), M.carnelian, false); bd.position.set(Math.cos(a) * 0.14, 0.015, Math.sin(a) * 0.09); bd.rotation.y = -a; beads.add(bd); }
+  beads.position.set(-13.3, 0.03, 50.55); world.add(beads);
+  addCol(-15.6, -12.4, 49.2, 51.4);
+
+  // scribe with tablet and the sealed bale
+  const scribe = person({ skin: '#9a6a45', bald: true, beard: 1, lower: M.linen, upper: null, cloak: M.linen, long: true });
+  sit(scribe); placePerson(scribe, -6, 44, 0.3);
+  scribe.userData.parts.armL.rotation.set(-1.0, 0, 0.3); scribe.userData.parts.armR.rotation.set(-1.1, 0, -0.35);
+  const tab = mesh(box(0.1, 0.03, 0.075, 0, 0, 0, 1), M.clay, false); tab.position.set(-5.95, 0.6, 44.42); tab.rotation.x = -0.5; world.add(tab);
+  scribe.userData.scribe = true;
+  addCol(-6.5, -5.5, 43.5, 44.6);
+  const sb = bale(0.9, 0.62, 0.7); sb.position.set(-4.6, 0, 44.1); world.add(sb);
+  const sealing = mesh(new THREE.CylinderGeometry(0.06, 0.065, 0.025, 14).rotateX(Math.PI / 2).translate(0, 0, 0.36), M.clay, false); sealing.position.set(-4.6, 0.42, 44.1); world.add(sealing);
+  const seal = mesh(box(0.028, 0.028, 0.009, 0, 0, 0, 1), M.stone, false); seal.position.set(-4.45, 0.63, 44.05); seal.rotation.x = -Math.PI / 2; world.add(seal);
+  addCol(-5.1, -4.1, 43.7, 44.5);
+
+  // the Sumerian trader sitting at the mat
+  const trader = person({ skin: '#9b6c47', beard: 1.6, lower: M.fleece, upper: null, cloak: M.fleece, long: true });
+  sit(trader); placePerson(trader, -14, 48.85, 0);
+  trader.userData.parts.armR.rotation.set(-1.0, 0, -0.2); trader.userData.parts.armL.rotation.set(-0.5, 0, 0.2);
+  trader.userData.gesture = true;
+
+  // workers on the quay
+  const dock1 = person({ skin: '#8c5f3e', bald: true, lower: M.wool }); placePerson(dock1, -4.8, 59.4, 0.5); dock1.userData.coil = true;
+  const dock2 = person({ skin: '#93653f', bald: true, lower: M.wool }); placePerson(dock2, 11.8, 59.6, -0.6); dock2.userData.coil = true;
+  for (let k = 0; k < 2; k++) {
+    const p = person({ skin: k ? '#8d5f3d' : '#97683f', bald: true, lower: M.wool });
+    p.userData.carry = true; p.userData.parts.armR.rotation.set(Math.PI - 0.25, 0, -0.25); p.userData.parts.armL.rotation.set(0, 0, 0.1);
+    const c = bale(0.8, 0.5, 0.55); c.position.set(0.12, 1.66, 0); c.rotation.y = Math.PI / 2; p.add(c);
+    p.userData.route = [new THREE.Vector3(5 + k * 2, 0, 59.2), new THREE.Vector3(13 + k, 0, 49.4)]; p.userData.t = k * 0.5;
+    placePerson(p, 5, 59, 0); npc.push(p);
+  }
+  // crew on deck
+  for (let k = 0; k < 3; k++) { const c = person({ skin: '#6e4528', bun: true, headband: '#d8c8a8', beard: 1, lower: M.white }); sit(c); c.position.set(-2.4 + k * 1.3, 0.42 - 0.48, 0.6 - (k % 2) * 1.1); c.rotation.y = 0.4 * (k - 1); sh.add(c); }
+
+  const dk = donkey(); dk.position.set(10.2, 0, 42); dk.rotation.y = 2.4; world.add(dk); addCol(9.2, 11.2, 41, 43);
+  const handler = person({ skin: '#9a6a45', bald: true, lower: M.wool }); placePerson(handler, 9.2, 43.0, 2.8);
+
+  // oven square
+  const ovenP = [[0.62, 0], [0.62, 0.3], [0.55, 0.7], [0.36, 1.0], [0.2, 1.08]].map(v => new THREE.Vector2(v[0], v[1]));
+  const oven = mesh(new THREE.LatheGeometry(ovenP, 20), M.clay); oven.position.set(18, 0, -22); world.add(oven); addCol(17.3, 18.7, -22.7, -21.3);
+  const quern = new THREE.Group(); quern.add(mesh(box(0.8, 0.14, 0.4, 0, 0.07, 0, 1), M.stone)); quern.add(mesh(new THREE.CapsuleGeometry(0.06, 0.25, 4, 8).rotateZ(Math.PI / 2).translate(0, 0.2, 0), M.stone));
+  quern.position.set(14.4, 0, -19.2); world.add(quern);
+  const woman = person({ skin: '#9a6a45', lower: M.linen, upper: M.linen, cloak: M.linen, long: true, bun: true }); sit(woman, 0.5); placePerson(woman, 14.4, -19.9, 0); woman.userData.grind = true;
+  for (let i = 0; i < 4; i++) { const j = jar(rr(0.6, 0.9), i % 2 ? M.jar : M.jarPale); j.position.set(20 + i * 0.7, 0, -25.5); world.add(j); }
+  addCol(19.6, 23, -26, -25);
+  const ovenGoat = bale(0.9, 0.5, 0.6); ovenGoat.position.set(23, 0, -17); world.add(ovenGoat);
+
+  // priestess at the temple door
+  const priestess = person({ skin: '#a8754e', lower: M.flounce, upper: M.flounce, cloak: M.flounce, long: true, cap: M.flounce });
+  placePerson(priestess, 2.6, -74.2, 0.2, TERRACE.h); priestess.userData.parts.armR.rotation.set(-0.9, 0, -0.1); priestess.userData.parts.armL.rotation.set(-0.3, 0, 0.1);
+  const attend = person({ skin: '#9a6a45', bald: true, lower: M.linen, long: true }); placePerson(attend, -2.4, -73.4, -0.4, TERRACE.h);
+  addCol(2.1, 3.1, -74.7, -73.7, 1); addCol(-2.9, -1.9, -73.9, -72.9, 1);
+
+  // the two merchants
+  leader = person({ skin: '#6f4429', bun: true, headband: '#e2c98f', beard: 1.25, lower: M.red, cloak: M.red, long: true, sleeve: M.red, bracelet: true });
+  follower = person({ skin: '#7a4c2e', bun: true, headband: '#c9a46a', beard: 0.6, lower: M.white, cloak: M.white, long: true, sleeve: M.white, necklace: true });
+  placePerson(leader, 2, 56, Math.PI); placePerson(follower, 3, 57, Math.PI);
+  leader.userData.level = 'ground'; follower.userData.level = 'ground';
+
+  // hotspots
+  hotspot('ship', new THREE.Vector3(3, 5.5, 66.6), { dist: 26, pitch: 0.28, yaw: 0.35, objs: [sh] });
+  hotspot('merchants', new THREE.Vector3(2, 2.3, 56), { dist: 4.2, pitch: 0.15, objs: [leader, follower], follow: true });
+  hotspot('kar', new THREE.Vector3(14.5, 2.2, 47), { dist: 14, pitch: 0.4, yaw: 0.6, objs: [balesA, balesB] });
+  hotspot('weights', new THREE.Vector3(-14.6, 0.35, 50.6), { dist: 0.75, pitch: 0.85, yaw: 0.3, focusAt: new THREE.Vector3(-14.68, 0.03, 50.55), objs: [weights, bal] });
+  hotspot('beads', new THREE.Vector3(-13.3, 0.35, 50.6), { dist: 1.2, pitch: 0.8, focusAt: new THREE.Vector3(-13.3, 0.05, 50.55), objs: [beads, trader, mat] });
+  hotspot('seal', new THREE.Vector3(-4.5, 1.05, 44.1), { dist: 1.4, pitch: 0.45, yaw: 0.5, focusAt: new THREE.Vector3(-4.55, 0.5, 44.2), objs: [sb, sealing, seal] });
+  hotspot('scribe', new THREE.Vector3(-6, 1.55, 44), { dist: 3, pitch: 0.3, yaw: 0.2, focusAt: new THREE.Vector3(-6, 0.6, 44.2), objs: [scribe] });
+  hotspot('goods', new THREE.Vector3(19.8, 1.8, 51.8), { dist: 6, pitch: 0.4, yaw: -0.4, objs: [jars] });
+  hotspot('donkey', new THREE.Vector3(10.2, 2.3, 42), { dist: 5.5, pitch: 0.25, yaw: 0.9, objs: [dk, handler] });
+  hotspot('palm', new THREE.Vector3(-27, 3, 57), { dist: 14, pitch: 0.2, yaw: 0.3, focusAt: new THREE.Vector3(-27, 5, 57) });
+  hotspot('rampart', new THREE.Vector3(10, 9.5, 31), { dist: 34, pitch: 0.32, yaw: 0.55, focusAt: new THREE.Vector3(4, 4, 30) });
+  hotspot('house', new THREE.Vector3(15, 2.2, 4), { dist: 15, pitch: 1.0, yaw: -0.6, focusAt: new THREE.Vector3(15, 0, 4) });
+  hotspot('oven', new THREE.Vector3(18, 1.6, -22), { dist: 5.5, pitch: 0.35, yaw: 0.5, focusAt: new THREE.Vector3(16.5, 0.5, -20.8), objs: [oven, quern, woman] });
+  hotspot('temple', new THREE.Vector3(0, 17, -76), { dist: 46, pitch: 0.25, yaw: 0.55, focusAt: new THREE.Vector3(0, 8, -80) });
+  hotspot('priestess', new THREE.Vector3(2.6, TERRACE.h + 2.1, -74.2), { dist: 3.2, pitch: 0.12, yaw: 0.2, focusAt: new THREE.Vector3(2.6, TERRACE.h + 1.3, -74.2), objs: [priestess] });
+
+  walkables.push(courtFloor);
+}
+
+// ---------- tour ----------
+const V = (x, z) => new THREE.Vector3(x, 0, z);
+const STOPS = [
+  { title: 'The quay', pos: V(2, 56), yaw: 2.75, pitch: 0.32, text: 'You have just stepped off the ship from Meluhha, after a voyage of more than 2,000 km up the Gulf.', spots: ['ship', 'merchants', 'kar', 'goods'] },
+  { title: 'Trading on the mat', pos: V(-11.5, 51.6), path: [V(-3, 54.5)], yaw: -0.9, text: 'A Sumerian trader weighs carnelian beads against a set of tiny stone cubes. A scribe records the deal in clay.', spots: ['weights', 'beads', 'scribe', 'seal'] },
+  { title: 'The city gate', pos: V(0, 33), path: [V(-6, 47.5), V(0, 41)], yaw: 0.1, text: 'The harbour lies outside the great sloping rampart. One gate leads into the city.', spots: ['rampart', 'donkey', 'palm'] },
+  { title: 'A courtyard house', pos: V(5, 4), path: [V(0, 18), V(3.5, 9)], yaw: -1.2, text: 'The door on your right opens into a house. Walk in: it is built around an open courtyard.', spots: ['house'] },
+  { title: 'Bread and grain', pos: V(11, -20), path: [V(4, -6), V(5, -18)], yaw: -1.0, text: 'A small open square with a bread oven and a woman grinding barley.', spots: ['oven'] },
+  { title: 'The temple terrace', pos: V(0, -42.5), path: [V(4.5, -27), V(0.5, -38)], yaw: 0.05, pitch: 0.42, text: 'A ramp climbs the brick terrace of Nanna, the moon god who watched over Ur.', spots: ['temple'] },
+  { title: 'The temple of Nanna', pos: V(0, -69), path: [V(0, -50), V(0, -63)], yaw: 0.2, text: 'At the temple door stands Enheduanna, Sargon’s daughter and high priestess of the moon god.', spots: ['priestess', 'temple'] },
+];
+let stopIdx = 0;
+
+// ---------- input & camera ----------
+const cam = { yaw: 0.25, pitch: 0.42, dist: 9.5, target: new THREE.Vector3(), mode: 'follow', focus: null };
+const camGoal = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist };
+const keys = new Set();
+addEventListener('keydown', e => { if (e.target.closest && e.target.closest('button')) return; keys.add(e.key.toLowerCase()); if (e.key === 'Escape') closePanel(); });
+addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+addEventListener('blur', () => keys.clear());
+
+const ptrs = new Map(); let drag = null, pinch = 0;
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1) drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now(), moved: false };
+  else { drag = null; const [a, b] = [...ptrs.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); }
+});
+canvas.addEventListener('pointermove', e => {
+  if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch) camGoal.dist = clamp(camGoal.dist * pinch / d, 1, 70); pinch = d; return; }
+  if (drag) {
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+    if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) drag.moved = true;
+    if (drag.moved) { camGoal.yaw -= dx * 0.0055; camGoal.pitch = clamp(camGoal.pitch + dy * 0.004, 0.05, 1.4); }
+  } else hover(e);
+});
+const endPtr = e => {
+  ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0;
+  if (drag && !drag.moved && performance.now() - drag.t < 600) click(e);
+  drag = null;
+};
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); drag = null; });
+canvas.addEventListener('wheel', e => { e.preventDefault(); camGoal.dist = clamp(camGoal.dist * (1 + Math.sign(e.deltaY) * 0.12), 1, 70); }, { passive: false });
+
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pick(e, list) { ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); return ray.intersectObjects(list, false); }
+let lastHover = 0;
+function hover(e) {
+  if (performance.now() - lastHover < 60) return; lastHover = performance.now();
+  const hit = pick(e, clickables.filter(o => o.visible))[0];
+  canvas.style.cursor = hit && hit.object.userData.hotspot ? 'pointer' : 'default';
+}
+function click(e) {
+  const hits = pick(e, clickables.filter(o => o.visible));
+  const walkHit = pick(e, walkables)[0];
+  const h = hits.find(x => x.object.userData.hotspot);
+  if (h && (!walkHit || h.distance <= walkHit.distance + 0.5)) { openHotspot(h.object.userData.hotspot); return; }
+  if (walkHit) { if (cam.mode === 'focus') closePanel(); walkTo(walkHit.point); }
+}
+
+// ---------- movement ----------
+const trail = [];
+function setPath(points) { leader.userData.path = points.map(p => p.clone()); }
+function walkTo(pt) {
+  const lv = leader.userData.level, tgt = structureAt(pt.x, pt.z);
+  const path = [];
+  if (lv === 'ground' && tgt) path.push(V(0, -44.2), V(0, -63.5));
+  if (lv !== 'ground' && !tgt) { if (lv === 'top') path.push(V(0, -63.5)); path.push(V(0, -44.2)); }
+  path.push(V(pt.x, pt.z)); setPath(path); leader.userData.stuck = 0; tourArrive = null;
+}
+function moveEntity(p, dx, dz) {
+  const u = p.userData; let lv = stepLevel(u.level, p.position.x + dx, p.position.z + dz);
+  if (lv) { p.position.x += dx; p.position.z += dz; u.level = lv; return true; }
+  lv = stepLevel(u.level, p.position.x + dx, p.position.z); if (lv && Math.abs(dx) > 1e-4) { p.position.x += dx; u.level = lv; return true; }
+  lv = stepLevel(u.level, p.position.x, p.position.z + dz); if (lv && Math.abs(dz) > 1e-4) { p.position.z += dz; u.level = lv; return true; }
+  return false;
+}
+let tourArrive = null;
+function updateLeader(dt) {
+  const u = leader.userData; let vx = 0, vz = 0;
+  const f = (keys.has('w') || keys.has('arrowup') ? 1 : 0) - (keys.has('s') || keys.has('arrowdown') ? 1 : 0);
+  const s = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
+  const speed = keys.has('shift') ? 4.2 : 2.3;
+  if (f || s) {
+    u.path = null; tourArrive = null; if (cam.mode === 'focus') closePanel();
+    const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = -fz, rz = fx;
+    const l = Math.hypot(f, s); vx = (fx * f + rx * s) / l * speed; vz = (fz * f + rz * s) / l * speed;
+  } else if (u.path && u.path.length) {
+    const t = u.path[0], dx = t.x - leader.position.x, dz = t.z - leader.position.z, d = Math.hypot(dx, dz);
+    if (d < 0.35) { u.path.shift(); if (!u.path.length) { u.path = null; if (tourArrive !== null) { arrive(tourArrive); tourArrive = null; } } }
+    else { const sp = Math.min(2.3, d * 3 + 0.6); vx = dx / d * sp; vz = dz / d * sp; }
+  }
+  const sp = Math.hypot(vx, vz);
+  if (sp > 0.01) {
+    const ok = moveEntity(leader, vx * dt, vz * dt);
+    if (!ok) { u.stuck = (u.stuck || 0) + dt; if (u.stuck > 0.6 && u.path) { u.path = null; } } else u.stuck = 0;
+    const want = Math.atan2(vx, vz); leader.rotation.y += Math.atan2(Math.sin(want - leader.rotation.y), Math.cos(want - leader.rotation.y)) * Math.min(1, dt * 10);
+    const last = trail[trail.length - 1];
+    if (!last || last.distanceTo(leader.position) > 0.25) { const p = leader.position.clone(); p.level = u.level; trail.push(p); if (trail.length > 400) trail.shift(); }
+  }
+  animWalk(leader, dt, sp);
+  leader.position.y = heightAt(u.level, leader.position.z) + u.bob;
+}
+function updateFollower(dt) {
+  // walk along the leader's trail, about 1.4 m behind and slightly to the side
+  const u = follower.userData; let target = null, need = 1.5, acc = 0;
+  for (let i = trail.length - 1; i > 0; i--) { acc += trail[i].distanceTo(trail[i - 1]); if (acc >= need) { target = trail[i - 1]; break; } }
+  if (!target) target = follower.position.clone().setY(0);
+  const dir = new THREE.Vector3(Math.sin(leader.rotation.y), 0, Math.cos(leader.rotation.y));
+  const side = new THREE.Vector3(dir.z, 0, -dir.x).multiplyScalar(0.55);
+  const goal = target.clone().add(side); goal.y = 0;
+  const dx = goal.x - follower.position.x, dz = goal.z - follower.position.z, d = Math.hypot(dx, dz);
+  let sp = 0;
+  if (d > 0.08) { sp = Math.min(3.0, d * 2.2); const st = Math.min(d, sp * dt); follower.position.x += dx / d * st; follower.position.z += dz / d * st;
+    const want = Math.atan2(dx, dz); follower.rotation.y += Math.atan2(Math.sin(want - follower.rotation.y), Math.cos(want - follower.rotation.y)) * Math.min(1, dt * 8); }
+  else { const want = leader.rotation.y; follower.rotation.y += Math.atan2(Math.sin(want - follower.rotation.y), Math.cos(want - follower.rotation.y)) * Math.min(1, dt * 3); }
+  const fs = structureAt(follower.position.x, follower.position.z), lv = fs && leader.userData.level !== 'ground' ? fs : 'ground';
+  animWalk(follower, dt, sp < 0.15 ? 0 : sp);
+  follower.position.y = heightAt(lv, follower.position.z) + u.bob;
+}
+
+function updateNPC(dt, t) {
+  for (const p of npc) {
+    const u = p.userData, [a, b] = u.route; u.t += dt * 0.07;
+    const k = u.t % 1, fwd = k < 0.5, s = fwd ? k * 2 : 2 - k * 2;
+    const pause = Math.abs(s - 0) < 0.04 || Math.abs(s - 1) < 0.04;
+    const pos = a.clone().lerp(b, THREE.MathUtils.smoothstep(s, 0, 1));
+    const dir = fwd ? b.clone().sub(a) : a.clone().sub(b);
+    p.position.set(pos.x, u.bob, pos.z); p.rotation.y = Math.atan2(dir.x, dir.z);
+    animWalk(p, dt, pause ? 0 : 1.6);
+  }
+  for (const p of people) {
+    const P = p.userData.parts;
+    if (p.userData.coil) { P.armR.rotation.x = -0.7 + Math.sin(t * 2 + p.userData.phase) * 0.35; P.armL.rotation.x = -0.6 + Math.cos(t * 2 + p.userData.phase) * 0.3; }
+    if (p.userData.grind) { const s = Math.sin(t * 2.4); P.armL.rotation.x = -1.1 + s * 0.25; P.armR.rotation.x = -1.1 + s * 0.25; p.rotation.x = 0.12 + s * 0.06; }
+    if (p.userData.gesture) { P.armR.rotation.x = -1.0 + Math.sin(t * 0.9) * 0.25; P.armR.rotation.z = -0.2 + Math.sin(t * 1.3) * 0.15; }
+    if (p.userData.scribe) { P.armR.rotation.z = -0.35 + Math.sin(t * 5) * 0.05; }
+  }
+}
+
+// ---------- UI ----------
+const panel = $('panel');
+function setFound(id) {
+  if (found.has(id)) return; found.add(id); HS[id].sprite.material.map = MK.found; HS[id].sprite.material.needsUpdate = true;
+  try { localStorage.setItem('ur-found', JSON.stringify([...found])); } catch (e) { }
+  renderJournal(); renderChips();
+}
+function openHotspot(id) {
+  const h = HS[id]; if (!h) return;
+  $('pTitle').textContent = h.title;
+  const tg = $('pTag'); tg.className = 'tag ' + h.tag; tg.textContent = { ev: 'Evidence', later: 'Later evidence', rec: 'Reconstruction' }[h.tag];
+  $('pBody').innerHTML = h.body.map(p => `<p>${p}</p>`).join('');
+  $('pEvidence').innerHTML = h.evidence; $('pSrc').textContent = 'Source: ' + h.src;
+  panel.classList.add('open'); document.body.classList.add('panel-open'); panel.scrollTop = 0;
+  $('journal').classList.remove('open');
+  cam.mode = 'focus'; cam.focus = h;
+  camGoal.dist = h.dist; camGoal.pitch = h.pitch; if (h.yaw !== null && h.yaw !== undefined) camGoal.yaw = h.yaw + (h.follow ? leader.rotation.y + Math.PI : 0);
+  setFound(id);
+}
+function closePanel() {
+  panel.classList.remove('open'); document.body.classList.remove('panel-open');
+  if (cam.mode === 'focus') { cam.mode = 'follow'; camGoal.dist = 9.5; camGoal.pitch = Math.max(0.35, Math.min(camGoal.pitch, 0.7)); }
+}
+$('closePanel').addEventListener('click', closePanel);
+
+function renderJournal() {
+  const ids = Object.keys(HS);
+  $('foundCount').textContent = `${ids.filter(i => found.has(i)).length} / ${ids.length}`;
+  $('jList').innerHTML = ids.map(i => `<li class="${found.has(i) ? 'found' : ''}"><button type="button" data-id="${i}"><span class="dot"></span><span>${found.has(i) ? HS[i].title : '???'}</span><span class="where">${HS[i].where}</span></button></li>`).join('');
+}
+$('jList').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const h = HS[b.dataset.id]; if (found.has(h.id)) openHotspot(h.id); else { $('journal').classList.remove('open'); } });
+$('journalBtn').addEventListener('click', () => { $('journal').classList.toggle('open'); if ($('journal').classList.contains('open')) closePanel(); });
+
+function renderChips() {
+  const s = STOPS[stopIdx];
+  $('chips').innerHTML = s.spots.map(i => `<button type="button" class="chip ${found.has(i) ? 'found' : ''}" data-id="${i}">${found.has(i) ? '✓ ' : ''}${HS[i].title}</button>`).join('');
+}
+$('chips').addEventListener('click', e => { const b = e.target.closest('button'); if (b) openHotspot(b.dataset.id); });
+function showStop(i) {
+  const s = STOPS[i];
+  $('stopNum').textContent = `Stop ${i + 1} of ${STOPS.length}`; $('stopTitle').textContent = s.title; $('stopText').textContent = s.text;
+  $('prevBtn').disabled = i === 0; $('nextBtn').disabled = i === STOPS.length - 1;
+  $('nextBtn').textContent = i === STOPS.length - 1 ? 'End of the walk' : 'Walk on ›';
+  renderChips();
+}
+function arrive(i) { stopIdx = i; showStop(i); const s = STOPS[i]; camGoal.yaw = s.yaw; camGoal.pitch = s.pitch || 0.4; camGoal.dist = 9.5; }
+function goStop(i) {
+  if (i < 0 || i >= STOPS.length) return; closePanel();
+  const s = STOPS[i];
+  const pts = i > stopIdx ? STOPS.slice(stopIdx + 1, i + 1).flatMap(x => [...(x.path || []), x.pos]) : STOPS.slice(i + 1, stopIdx + 1).reverse().flatMap(x => [x.pos, ...[...(x.path || [])].reverse()]).slice(1).concat([s.pos]);
+  setPath(pts); tourArrive = i;
+  $('stopNum').textContent = `Walking to stop ${i + 1}`; $('stopTitle').textContent = s.title; $('stopText').textContent = ''; $('chips').innerHTML = '';
+}
+$('nextBtn').addEventListener('click', () => goStop(stopIdx + 1));
+$('prevBtn').addEventListener('click', () => goStop(stopIdx - 1));
+
+function teleport(i) {
+  const s = STOPS[i], lv = structureAt(s.pos.x, s.pos.z) || 'ground';
+  leader.position.set(s.pos.x, heightAt(lv, s.pos.z), s.pos.z); leader.userData.level = lv;
+  follower.position.set(s.pos.x + 0.8, heightAt(lv, s.pos.z + 1), s.pos.z + 1); follower.userData.level = lv;
+  trail.length = 0; const p = leader.position.clone(); p.level = lv; trail.push(p);
+  stopIdx = i; arrive(i); Object.assign(cam, { yaw: camGoal.yaw, pitch: camGoal.pitch, dist: camGoal.dist }); cam.target.copy(leader.position).add(new THREE.Vector3(0, 1.55, 0));
+}
+
+// ---------- loop ----------
+const clock = new THREE.Clock(); const tmp = new THREE.Vector3();
+function update() {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  updateLeader(dt); updateFollower(dt); updateNPC(dt, t);
+  // camera
+  const k = 1 - Math.exp(-dt * 6);
+  cam.yaw += (camGoal.yaw - cam.yaw) * k; cam.pitch += (camGoal.pitch - cam.pitch) * k; cam.dist += (camGoal.dist - cam.dist) * k;
+  const want = cam.mode === 'focus' && cam.focus
+    ? (cam.focus.follow ? leader.position.clone().add(new THREE.Vector3(0, 1.5, 0)) : (cam.focus.focusAt || cam.focus.pos))
+    : leader.position.clone().add(new THREE.Vector3(0, 1.55, 0));
+  cam.target.lerp(want, cam.mode === 'focus' ? k * 0.8 : 1 - Math.exp(-dt * 10));
+  const cp = Math.cos(cam.pitch);
+  camera.position.set(cam.target.x + Math.sin(cam.yaw) * cp * cam.dist, cam.target.y + Math.sin(cam.pitch) * cam.dist, cam.target.z + Math.cos(cam.yaw) * cp * cam.dist);
+  if (camera.position.y < cam.target.y - 0.5 + 0.3) camera.position.y = cam.target.y + 0.3;
+  camera.lookAt(cam.target);
+  // sun follows the view so shadows stay sharp near the merchants
+  sun.position.copy(cam.target).addScaledVector(sunDir, 160); sun.target.position.copy(cam.target);
+  // water and ship
+  const w = world.userData.water; if (w) { w.material.bumpMap.offset.x = t * 0.004; w.material.bumpMap.offset.y = t * 0.0025; }
+  const sh = world.userData.ship; if (sh) { sh.position.y = -0.95 + Math.sin(t * 0.8) * 0.04; sh.rotation.x = Math.sin(t * 0.6) * 0.01; }
+  // hotspot markers: show nearby ones
+  for (const id in HS) { const h = HS[id]; if (h.follow) h.sprite.position.copy(leader.position).add(tmp.set(0, 2.35, 0)); h.sprite.visible = h.sprite.position.distanceTo(leader.position) < 42 || cam.focus === h; }
+  renderer.render(scene, camera);
+}
+
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+await build();
+renderJournal();
+teleport(Math.min(STOPS.length - 1, Math.max(0, +params.get('stop') || 0)));
+$('tour').hidden = false;
+renderer.setAnimationLoop(update);
+loadText('Ready.');
+const sb = $('startBtn'); sb.disabled = false; sb.textContent = 'Begin the walk';
+sb.addEventListener('click', () => { $('intro').classList.add('gone'); canvas.focus(); });
+if (params.has('auto')) $('intro').classList.add('gone');
+if (params.has('noui')) for (const id of ['top', 'tour', 'intro']) $(id).style.display = 'none';
+if (params.get('focus')) setTimeout(() => openHotspot(params.get('focus')), 300);
+if (params.get('cam')) { const [y, p, d] = params.get('cam').split(',').map(Number); Object.assign(camGoal, { yaw: y, pitch: p, dist: d }); Object.assign(cam, { yaw: y, pitch: p, dist: d }); }
+window.__ready = true;
+</script>
+</body>
+</html>
