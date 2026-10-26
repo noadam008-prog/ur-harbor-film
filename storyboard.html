@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Meluhha Storyboard v2</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+  :root { --lapis:#101a33; --line:#2b3a68; --text:#e9e4d6; --muted:#a3a8bd; --carnelian:#e0703f; --ok:#7fc99a;
+    --display:"Young Serif", Georgia, serif; --body:"Instrument Sans", system-ui, "Segoe UI", sans-serif; color-scheme: dark; }
+  body { margin:0; background:var(--lapis); color:var(--text); font:16px/1.6 var(--body);
+    padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:40px 64px; }
+  main { max-width:1100px; margin:0 auto; display:grid; gap:28px; }
+  h1 { font:400 clamp(28px,5vw,44px)/1.1 var(--display); margin:0; }
+  .lede { color:var(--muted); margin:6px 0 0; max-width:65ch; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:28px; }
+  figure { margin:0; display:grid; gap:8px; min-width:0; }
+  img { width:100%; max-width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:6px; display:block; }
+  .tag { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--carnelian); font-weight:600; }
+  .title { font-weight:600; }
+  .move { font-size:14px; color:var(--muted); }
+  .check { font-size:14px; }
+  .check b { color:var(--ok); font-weight:600; }
+  .check i { color:var(--carnelian); font-style:normal; font-weight:600; }
+  a { color:var(--carnelian); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="tag">Version 2 · stills for approval · not yet animated</span>
+    <h1>A Ship from Meluhha: storyboard</h1>
+    <p class="lede">Six shots, about 60 seconds. Each still becomes a 10-second clip with the camera move written under it. Current film: <a href="./">main page</a>.</p>
+  </header>
+  <div class="grid">
+    <figure><img src="v2/A.jpg" alt="Aerial view of a mudbrick city by a river at sunset with a sailing boat"><span class="tag">Shot A · 0:00</span><span class="title">From the sky</span><span class="move">Camera: slow drone descent toward the boat.</span><span class="check"><b>Good:</b> city, river, fields, boat. <i>Check:</i> faint hills on the horizon (the real plain is flat).</span></figure>
+    <figure><img src="v2/B.jpg" alt="Sailing boat arriving at a quay with four dockworkers waiting"><span class="tag">Shot B · 0:10</span><span class="title">Docking</span><span class="move">Camera: push-in as the boat glides in, sail lowered, one sailor steps ashore.</span><span class="check"><b>Good:</b> realistic workers and boat. <i>Check:</i> workers stand in a posed row; hills again in the distance.</span></figure>
+    <figure><img src="v2/C.jpg" alt="Two Indus merchants bargaining with a bearded Sumerian merchant over a balance and weights"><span class="tag">Shot C · 0:20</span><span class="title">Trading</span><span class="move">Camera: almost still; a weight is set on the balance, the merchant nods.</span><span class="check"><b>Good:</b> Meluhhans and Sumerian clearly distinct; balance, cube weights, beads. <i>Check:</i> weights drawn larger than the real 1–3 cm cubes.</span></figure>
+    <figure><img src="v2/D.jpg" alt="Indus merchant holding out a string of carnelian beads to a buyer"><span class="tag">Shot D · 0:30</span><span class="title">Carnelian beads</span><span class="move">Camera: very slow push-in as the buyer turns a bead.</span><span class="check"><b>Good:</b> natural faces and hands, eye-pattern beads.</span></figure>
+    <figure><img src="v2/E.jpg" alt="Hands pressing a square unicorn seal into clay on a trade bale"><span class="tag">Shot E · 0:40</span><span class="title">Sealing a bale</span><span class="move">Camera: seal pressed into clay, lifted to show the impression.</span><span class="check"><b>Good:</b> real use of Indus seals (sealing bales). <i>Check:</i> seal is far too big (real ones are about 3 cm), and the horn sticks out past the edge.</span></figure>
+    <figure><img src="v2/F.jpg" alt="Two workers carrying a log while a scribe records cargo and a merchant watches"><span class="tag">Shot F · 0:50</span><span class="title">Unloading ivory and timber</span><span class="move">Camera: workers walk past with the log, slow pull-back.</span><span class="check"><b>Good:</b> natural workers, tusk, merchant watching. <i>Check:</i> the tablet looks like a large red slab rather than a small clay tablet.</span></figure>
+  </div>
+</main>
+</body>
+</html>
