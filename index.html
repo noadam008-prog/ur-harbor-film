@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta property="og:title" content="A Ship from Meluhha">
+<meta property="og:image" content="poster.jpg">
+<title>A Ship from Meluhha</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: one centred screening column — film first, chapters under it, then the three trade goods. Single dark "lapis" look by choice. */
+  :root {
+    --lapis: #101a33;
+    --lapis-2: #18244a;
+    --line: #2b3a68;
+    --text: #e9e4d6;
+    --muted: #a3a8bd;
+    --carnelian: #e0703f;
+    --display: "Young Serif", Georgia, "Times New Roman", serif;
+    --body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--lapis);
+    color: var(--text);
+    font: 16px/1.6 var(--body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 40px 64px;
+  }
+  main { max-width: 960px; margin: 0 auto; display: grid; gap: 32px; }
+  header { display: grid; gap: 8px; }
+  .eyebrow { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--carnelian); font-weight: 600; }
+  h1 { font: 400 clamp(32px, 6vw, 56px)/1.1 var(--display); margin: 0; text-wrap: balance; }
+  .lede { color: var(--muted); margin: 0; max-width: 62ch; }
+  video { width: 100%; max-width: 100%; aspect-ratio: 16 / 9; display: block; background: #000; border-radius: 6px; }
+  h2 { font: 400 24px/1.2 var(--display); margin: 0 0 12px; }
+  .chapters { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .chapters button {
+    width: 100%; text-align: left; cursor: pointer;
+    background: var(--lapis-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+    padding: 12px 14px; font: inherit; display: grid; gap: 2px;
+  }
+  .chapters button:hover { border-color: var(--carnelian); }
+  .chapters button:focus-visible { outline: 2px solid var(--carnelian); outline-offset: 2px; }
+  .chapters button[aria-current="true"] { border-color: var(--carnelian); }
+  .time { font-size: 12px; color: var(--carnelian); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .shot { font-weight: 500; }
+  .line { font-size: 14px; color: var(--muted); }
+  .goods { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+  .goods div { border-top: 1px solid var(--line); padding-top: 12px; min-width: 0; }
+  .goods h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+  .goods p { margin: 0; color: var(--muted); font-size: 14px; }
+  footer { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+<style>body{margin:0}</style>
+</head>
+<body>
+
+<main>
+  <header>
+    <span class="eyebrow">Ur · c. 2500 BCE · 40 seconds</span>
+    <h1>A Ship from Meluhha</h1>
+    <p class="lede">A trading boat from the Indus Valley — the land the Sumerians called Meluhha — arrives at the harbour of Ur with three of the goods it was known for.</p>
+  </header>
+
+  <video id="film" controls playsinline preload="metadata" poster="poster.jpg">
+    <source src="ur-harbor.mp4" type="video/mp4">
+  </video>
+
+  <section>
+    <h2>Chapters</h2>
+    <ol class="chapters">
+      <li><button type="button" data-t="0"><span class="time">0:00</span><span class="shot">Arrival at the harbour</span><span class="line">“Ur, around 2500 BCE…”</span></button></li>
+      <li><button type="button" data-t="10"><span class="time">0:10</span><span class="shot">Etched carnelian beads</span><span class="line">“Red stone etched with white patterns…”</span></button></li>
+      <li><button type="button" data-t="20"><span class="time">0:20</span><span class="shot">The unicorn seal</span><span class="line">“A script no one can read today.”</span></button></li>
+      <li><button type="button" data-t="30"><span class="time">0:30</span><span class="shot">Ivory and timber</span><span class="line">“Connected by the sea.”</span></button></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>The three goods</h2>
+    <div class="goods">
+      <div><h3>Etched carnelian beads</h3><p>The best-known Indus export. Beads like these were found in the Royal Cemetery of Ur (c. 2600–2500 BCE).</p></div>
+      <div><h3>Square steatite seals</h3><p>An Indus trademark, carved with animals such as the one-horned bull and a line of still-undeciphered script. Indus-style seals have turned up in Mesopotamia, including at Ur.</p></div>
+      <div><h3>Ivory and fine timber</h3><p>Mesopotamian texts list both among the goods that came from Meluhha, often through middlemen in Dilmun (Bahrain) and Magan (Oman).</p></div>
+    </div>
+  </section>
+
+  <footer>Made with Runway: Gen-4 Image stills, Gen-4 Turbo motion, ElevenLabs narration and harbour ambience. AI reconstruction — architecture and boat details are approximate.</footer>
+</main>
+
+<script>
+  const film = document.getElementById('film');
+  const buttons = [...document.querySelectorAll('.chapters button')];
+  buttons.forEach(b => b.addEventListener('click', () => {
+    film.currentTime = Number(b.dataset.t);
+    film.play().catch(() => {});
+  }));
+  film.addEventListener('timeupdate', () => {
+    const i = Math.min(3, Math.floor(film.currentTime / 10));
+    buttons.forEach((b, j) => b.setAttribute('aria-current', String(i === j)));
+  });
+</script>
+</body>
+</html>
