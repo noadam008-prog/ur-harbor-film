@@ -70,7 +70,7 @@
 
 <main>
   <header>
-    <span class="eyebrow">Ur · c. 2500 BCE · 60 seconds · version 2</span>
+    <span class="eyebrow">Ur · c. 2500 BCE · 54 seconds · version 2</span>
     <h1>A Ship from Meluhha</h1>
     <p class="lede">A trading boat from the Indus Valley — the land the Sumerians called Meluhha — arrives at the harbour of Ur with three of the goods it was known for.</p>
   </header>
@@ -84,10 +84,10 @@
     <ol class="chapters">
       <li><button type="button" data-t="0"><span class="time">0:00</span><span class="shot">From the sky</span><span class="line">“A city of mudbrick rises from the flat marshes…”</span></button></li>
       <li><button type="button" data-t="10"><span class="time">0:10</span><span class="shot">Docking</span><span class="line">“Sailed up the Gulf from Meluhha…”</span></button></li>
-      <li><button type="button" data-t="20"><span class="time">0:20</span><span class="shot">Trading on the quay</span><span class="line">“Weighing goods against stone cubes…”</span></button></li>
-      <li><button type="button" data-t="30"><span class="time">0:30</span><span class="shot">Carnelian beads</span><span class="line">“Red stone beads etched with white patterns…”</span></button></li>
-      <li><button type="button" data-t="40"><span class="time">0:40</span><span class="shot">Sealing a bale</span><span class="line">“A script no one can read today.”</span></button></li>
-      <li><button type="button" data-t="50"><span class="time">0:50</span><span class="shot">Ivory and timber</span><span class="line">“Connected by the sea.”</span></button></li>
+      <li><button type="button" data-t="18"><span class="time">0:18</span><span class="shot">Trading on the quay</span><span class="line">“Weighing goods against stone cubes…”</span></button></li>
+      <li><button type="button" data-t="26"><span class="time">0:26</span><span class="shot">Carnelian beads</span><span class="line">“Red stone beads etched with white patterns…”</span></button></li>
+      <li><button type="button" data-t="36"><span class="time">0:36</span><span class="shot">Sealing a bale</span><span class="line">“A script no one can read today.”</span></button></li>
+      <li><button type="button" data-t="46"><span class="time">0:46</span><span class="shot">Ivory and timber</span><span class="line">“Connected by the sea.”</span></button></li>
     </ol>
   </section>
 
@@ -127,7 +127,7 @@
     <video controls playsinline preload="metadata" poster="poster.jpg" style="margin-top:12px"><source src="ur-harbor.mp4" type="video/mp4"></video>
   </section>
 
-  <footer>Made with Runway: Gen-4 Image stills, Gen-4 Turbo motion (opening zoom added in editing) (Gen-4.5 and Seedance 2.5 in the comparison), ElevenLabs narration and harbour ambience. AI reconstruction — architecture and boat details are approximate.</footer>
+  <footer>Made with Runway: Gen-4 Image stills, Gen-4 Turbo and Veo 3.1 Fast motion (Veo for docking, trading and unloading; opening zoom added in editing) (Gen-4.5 and Seedance 2.5 in the comparison), ElevenLabs narration and harbour ambience. AI reconstruction — architecture and boat details are approximate.</footer>
 </main>
 
 <script>
@@ -138,7 +138,8 @@
     film.play().catch(() => {});
   }));
   film.addEventListener('timeupdate', () => {
-    const i = Math.min(5, Math.floor(film.currentTime / 10));
+    const starts = buttons.map(b => Number(b.dataset.t));
+    const i = starts.filter(s => film.currentTime >= s).length - 1;
     buttons.forEach((b, j) => b.setAttribute('aria-current', String(i === j)));
   });
   const cmp = [...document.querySelectorAll('.cmp-v')];
