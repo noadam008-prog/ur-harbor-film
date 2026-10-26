@@ -52,6 +52,16 @@
   .goods h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
   .goods p { margin: 0; color: var(--muted); font-size: 14px; }
   footer { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+  .play-all { margin: 4px 0 16px; cursor: pointer; background: var(--carnelian); color: var(--lapis); border: 0; border-radius: 6px; padding: 10px 16px; font: 600 14px var(--body); }
+  .play-all:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  .cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+  .cmp figure { margin: 0; display: grid; gap: 10px; align-content: start; min-width: 0; }
+  .cmp video { width: 100%; max-width: 100%; aspect-ratio: 16 / 9; display: block; background: #000; border-radius: 6px; }
+  .cmp figcaption { display: grid; gap: 2px; }
+  .cmp .model { font-weight: 600; }
+  .cmp .cost { font-size: 12px; color: var(--carnelian); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .cmp .note { font-size: 14px; color: var(--muted); }
+  #compare .lede { margin-bottom: 12px; }
   @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 </style>
 <style>body{margin:0}</style>
@@ -88,7 +98,27 @@
     </div>
   </section>
 
-  <footer>Made with Runway: Gen-4 Image stills, Gen-4 Turbo motion, ElevenLabs narration and harbour ambience. AI reconstruction — architecture and boat details are approximate.</footer>
+  <section id="compare">
+    <h2>Shot 1, three models</h2>
+    <p class="lede">The same still image and the same motion prompt (“slow drone push-in as the sail is lowered and ropes are thrown to the dock”), rendered by three video models on Runway. 10 seconds each, 1280×720.</p>
+    <button type="button" id="play-all" class="play-all">Play all three together</button>
+    <div class="cmp">
+      <figure>
+        <video class="cmp-v" controls playsinline muted preload="metadata" poster="cmp-gen4-turbo.jpg"><source src="cmp-gen4-turbo.mp4" type="video/mp4"></video>
+        <figcaption><span class="model">Gen-4 Turbo</span><span class="cost">50 credits · ≈ $0.50</span><span class="note">Used in the film. Calm push-in; the sail stays up. Cheapest and steady, but the least happens.</span></figcaption>
+      </figure>
+      <figure>
+        <video class="cmp-v" controls playsinline muted preload="metadata" poster="cmp-gen4-5.jpg"><source src="cmp-gen4-5.mp4" type="video/mp4"></video>
+        <figcaption><span class="model">Gen-4.5</span><span class="cost">≈ 120 credits · ≈ $1.20</span><span class="note">Most cinematic. Cuts in to a sailor coiling rope on deck, with richer light and detail.</span></figcaption>
+      </figure>
+      <figure>
+        <video class="cmp-v" controls playsinline muted preload="metadata" poster="cmp-seedance-2-5.jpg"><source src="cmp-seedance-2-5.mp4" type="video/mp4"></video>
+        <figcaption><span class="model">Seedance 2.5</span><span class="cost">≈ 300 credits · ≈ $3.00</span><span class="note">Follows the prompt most literally: the sail comes down and ropes fly to the dock. Comes with its own generated sound (unmute to hear it).</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <footer>Made with Runway: Gen-4 Image stills, Gen-4 Turbo motion (Gen-4.5 and Seedance 2.5 in the comparison), ElevenLabs narration and harbour ambience. AI reconstruction — architecture and boat details are approximate.</footer>
 </main>
 
 <script>
@@ -101,6 +131,11 @@
   film.addEventListener('timeupdate', () => {
     const i = Math.min(3, Math.floor(film.currentTime / 10));
     buttons.forEach((b, j) => b.setAttribute('aria-current', String(i === j)));
+  });
+  const cmp = [...document.querySelectorAll('.cmp-v')];
+  document.getElementById('play-all').addEventListener('click', () => {
+    film.pause();
+    cmp.forEach(v => { v.currentTime = 0; v.play().catch(() => {}); });
   });
 </script>
 </body>
