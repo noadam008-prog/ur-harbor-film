@@ -1404,7 +1404,7 @@ function teleport(i) {
   leader.position.set(s.pos.x, heightAt(lv, s.pos.z), s.pos.z); leader.userData.level = lv;
   follower.position.set(s.pos.x + 0.7, heightAt(lv, s.pos.z + 0.9), s.pos.z + 0.9); follower.userData.level = lv;
   trail.length = 0; const p = leader.position.clone(); p.level = lv; trail.push(p);
-  stopIdx = i; arrive(i); Object.assign(cam, { yaw: camGoal.yaw, pitch: camGoal.pitch, dist: camGoal.dist }); cam.target.copy(leader.position).add(new THREE.Vector3(0, 1.5, 0));
+  stopIdx = i; arrive(i); Object.assign(cam, { yaw: camGoal.yaw, pitch: camGoal.pitch, dist: camGoal.dist }); cam.target.copy(leader.position).add(new THREE.Vector3(0, 1.05, 0));
   leader.rotation.y = s.face ?? s.yaw + Math.PI; follower.rotation.y = leader.rotation.y;
 }
 
@@ -1418,7 +1418,7 @@ function update() {
   cam.yaw += (camGoal.yaw - cam.yaw) * k; cam.pitch += (camGoal.pitch - cam.pitch) * k; cam.dist += (camGoal.dist - cam.dist) * k;
   const want = cam.mode === 'focus' && cam.focus
     ? (cam.focus.follow ? leader.position.clone().add(new THREE.Vector3(0, 1.45, 0)) : (cam.focus.focusAt || cam.focus.pos))
-    : leader.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+    : leader.position.clone().add(new THREE.Vector3(0, 1.05, 0));
   cam.target.lerp(want, cam.mode === 'focus' ? k * 0.8 : 1 - Math.exp(-dt * 10));
   const cp = Math.cos(cam.pitch);
   camera.position.set(cam.target.x + Math.sin(cam.yaw) * cp * cam.dist, cam.target.y + Math.sin(cam.pitch) * cam.dist, cam.target.z + Math.cos(cam.yaw) * cp * cam.dist);
