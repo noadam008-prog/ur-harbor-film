@@ -70,30 +70,33 @@
 
 <main>
   <header>
-    <span class="eyebrow">Ur · c. 2500 BCE · 40 seconds</span>
+    <span class="eyebrow">Ur · c. 2500 BCE · 60 seconds · version 2</span>
     <h1>A Ship from Meluhha</h1>
     <p class="lede">A trading boat from the Indus Valley — the land the Sumerians called Meluhha — arrives at the harbour of Ur with three of the goods it was known for.</p>
   </header>
 
-  <video id="film" controls playsinline preload="metadata" poster="poster.jpg">
-    <source src="ur-harbor.mp4" type="video/mp4">
+  <video id="film" controls playsinline preload="metadata" poster="poster-v2.jpg">
+    <source src="ur-harbor-v2.mp4" type="video/mp4">
   </video>
 
   <section>
     <h2>Chapters</h2>
     <ol class="chapters">
-      <li><button type="button" data-t="0"><span class="time">0:00</span><span class="shot">Arrival at the harbour</span><span class="line">“Ur, around 2500 BCE…”</span></button></li>
-      <li><button type="button" data-t="10"><span class="time">0:10</span><span class="shot">Etched carnelian beads</span><span class="line">“Red stone etched with white patterns…”</span></button></li>
-      <li><button type="button" data-t="20"><span class="time">0:20</span><span class="shot">The unicorn seal</span><span class="line">“A script no one can read today.”</span></button></li>
-      <li><button type="button" data-t="30"><span class="time">0:30</span><span class="shot">Ivory and timber</span><span class="line">“Connected by the sea.”</span></button></li>
+      <li><button type="button" data-t="0"><span class="time">0:00</span><span class="shot">From the sky</span><span class="line">“A city of mudbrick rises from the flat marshes…”</span></button></li>
+      <li><button type="button" data-t="10"><span class="time">0:10</span><span class="shot">Docking</span><span class="line">“Sailed up the Gulf from Meluhha…”</span></button></li>
+      <li><button type="button" data-t="20"><span class="time">0:20</span><span class="shot">Trading on the quay</span><span class="line">“Weighing goods against stone cubes…”</span></button></li>
+      <li><button type="button" data-t="30"><span class="time">0:30</span><span class="shot">Carnelian beads</span><span class="line">“Red stone beads etched with white patterns…”</span></button></li>
+      <li><button type="button" data-t="40"><span class="time">0:40</span><span class="shot">Sealing a bale</span><span class="line">“A script no one can read today.”</span></button></li>
+      <li><button type="button" data-t="50"><span class="time">0:50</span><span class="shot">Ivory and timber</span><span class="line">“Connected by the sea.”</span></button></li>
     </ol>
   </section>
 
   <section>
-    <h2>The three goods</h2>
+    <h2>The goods from Meluhha</h2>
     <div class="goods">
       <div><h3>Etched carnelian beads</h3><p>The best-known Indus export. Beads like these were found in the Royal Cemetery of Ur (c. 2600–2500 BCE).</p></div>
       <div><h3>Square steatite seals</h3><p>An Indus trademark, carved with animals such as the one-horned bull and a line of still-undeciphered script. Indus-style seals have turned up in Mesopotamia, including at Ur.</p></div>
+      <div><h3>Cube-shaped stone weights</h3><p>Indus traders used a standard set of polished chert cubes. Weights of this kind have been found in Mesopotamia and around the Gulf.</p></div>
       <div><h3>Ivory and fine timber</h3><p>Mesopotamian texts list both among the goods that came from Meluhha, often through middlemen in Dilmun (Bahrain) and Magan (Oman).</p></div>
     </div>
   </section>
@@ -118,7 +121,13 @@
     </div>
   </section>
 
-  <footer>Made with Runway: Gen-4 Image stills, Gen-4 Turbo motion (Gen-4.5 and Seedance 2.5 in the comparison), ElevenLabs narration and harbour ambience. AI reconstruction — architecture and boat details are approximate.</footer>
+  <section id="version-1">
+    <h2>Version 1</h2>
+    <p class="lede">The first 40-second cut: four shots, game-like people, Gen-4 Turbo. Kept for comparison. Version 2 stills: <a href="storyboard.html" style="color:var(--carnelian)">storyboard</a>.</p>
+    <video controls playsinline preload="metadata" poster="poster.jpg" style="margin-top:12px"><source src="ur-harbor.mp4" type="video/mp4"></video>
+  </section>
+
+  <footer>Made with Runway: Gen-4 Image stills, Gen-4 Turbo motion (opening zoom added in editing) (Gen-4.5 and Seedance 2.5 in the comparison), ElevenLabs narration and harbour ambience. AI reconstruction — architecture and boat details are approximate.</footer>
 </main>
 
 <script>
@@ -129,7 +138,7 @@
     film.play().catch(() => {});
   }));
   film.addEventListener('timeupdate', () => {
-    const i = Math.min(3, Math.floor(film.currentTime / 10));
+    const i = Math.min(5, Math.floor(film.currentTime / 10));
     buttons.forEach((b, j) => b.setAttribute('aria-current', String(i === j)));
   });
   const cmp = [...document.querySelectorAll('.cmp-v')];
