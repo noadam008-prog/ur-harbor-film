@@ -162,6 +162,7 @@ import { Water } from 'three/addons/objects/Water.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { MeshoptSimplifier } from 'https://cdn.jsdelivr.net/npm/meshoptimizer@0.21.0/meshopt_simplifier.module.js';
 
 const ASSET = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/';
 const $ = id => document.getElementById(id);
@@ -369,7 +370,7 @@ const smokeTex = (() => {
 // ---------- the map, matched to the film's opening aerial ----------
 // An oval walled city; the river curves along its east side, leaving a narrow storehouse quay under the rampart;
 // to the south-west lies an open sandy foreshore with a stone pier where the ship moors.
-const CITY = { cx: 0, cz: -70, sx: 1.25, sz: 0.9, rin: 100, rout: 116, gate: -0.45, gap: 0.03 };
+const CITY = { cx: 0, cz: -70, sx: 1.25, sz: 0.9, rin: 94, rout: 116, gate: -0.45, gap: 0.03 };
 const cityN = (x, z) => [(x - CITY.cx) / CITY.sx, (z - CITY.cz) / CITY.sz];
 const cityR = (x, z) => { const [u, w] = cityN(x, z); return Math.hypot(u, w); };
 const cityA = (x, z) => { const [u, w] = cityN(x, z); return Math.atan2(u, w); };
@@ -600,7 +601,7 @@ async function buildLand() {
 
 function buildRampart() {
   const { rin, rout, gap, gate } = CITY;
-  const prof = [[rin, 0], [rin + 2.5, 6.6], [rin + 6, 7.6], [rout - 6, 7.6], [rout - 2, 6.2], [rout, 0]].map(p => new THREE.Vector2(p[0], p[1]));
+  const prof = [[rin, 0], [rin + 2.2, 7.5], [rin + 4.5, 10.8], [rin + 8, 11.8], [rout - 9, 11.8], [rout - 5.5, 10.6], [rout - 2.6, 7.6], [rout - 0.8, 2.6], [rout, 0]].map(p => new THREE.Vector2(p[0], p[1]));
   const g = new THREE.LatheGeometry(prof, 200, gate + gap, Math.PI * 2 - gap * 2);
   const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 190, uv.getY(i) * 6);
   g.scale(CITY.sx, 1, CITY.sz); g.translate(CITY.cx, 0, CITY.cz); g.computeVertexNormals();
@@ -608,11 +609,11 @@ function buildRampart() {
   const tw = [];
   for (const s of [-1, 1]) {
     const a = gate + s * (gap + 0.022), p = cityPt((rin + rout) / 2, a), n = cityNormal(a);
-    tw.push(worldUV(loc(rbox(5.2, 9.5, 24, 0.4, 0.06), p.x, p.z, Math.atan2(n.x, n.z))));
+    tw.push(worldUV(loc(rbox(6, 14, 31, 0.5, 0.07), p.x, p.z, Math.atan2(n.x, n.z))));
   }
   world.add(mesh(mergeGeometries(tw), M.terrace));
   const gp = cityPt(rout - 4, gate), gn = cityNormal(gate);
-  world.add(mesh(loc(box(7.5, 1.4, 3, 0, 8.4, 0, 2), gp.x, gp.z, Math.atan2(gn.x, gn.z)), M.wood));
+  world.add(mesh(loc(box(7.5, 1.6, 3.5, 0, 12.4, 0, 2), gp.x, gp.z, Math.atan2(gn.x, gn.z)), M.wood));
 }
 
 const HOUSE_TINTS = ['#ffffff', '#f4ebe0', '#efe2cf', '#fbf3e6', '#e8dac4'];
@@ -634,17 +635,17 @@ function buildHouses() {
     if (x > -32 - r && x < 32 + r && z > -130 - r && z < -58 + r) return true;
     if (x > 5 - r && x < 28 + r && z > -30 - r && z < -10 + r) return true;
     if (x > 6 - r && x < 25 + r && z > -5 - r && z < 13.5 + r) return true;
-    return cityR(x, z) > CITY.rin - 6 - r / CITY.sz;
+    return cityR(x, z) > CITY.rin - 4 - r / CITY.sz;
   };
-  for (let gz = -178; gz < 45; gz += 11.5) for (let gx = -150; gx < 150; gx += 11.5) {
-    if (R() < 0.05) continue;
-    const w = rr(7.5, 10.2), d = rr(7.5, 10.2), cx = gx + rr(-1.4, 1.4), cz = gz + rr(-1.4, 1.4), r = Math.max(w, d) / 2;
+  for (let gz = -178; gz < 45; gz += 9.6) for (let gx = -150; gx < 150; gx += 9.6) {
+    if (R() < 0.03) continue;
+    const w = rr(6.8, 8.8), d = rr(6.8, 8.8), cx = gx + rr(-1.4, 1.4), cz = gz + rr(-1.4, 1.4), r = Math.max(w, d) / 2;
     if (blocked(cx, cz, r)) continue;
     const h = R() < 0.28 ? rr(5.8, 6.6) : rr(3.2, 3.8);
     const col = pick(HOUSE_TINTS);
     const add = (bw, bh, bd, x, z, y = 0) => houseGeos.push(tint(worldUV(loc(rbox(bw, bh, bd, 0.22, 0.03), x, z, 0, y)), col));
-    if (w > 8.6 && d > 8.6 && R() < 0.8) {
-      const t = 3.1, hE = R() < .5 ? h : h * 0.62;
+    if (w > 7.6 && d > 7.6 && R() < 0.8) {
+      const t = 2.7, hE = R() < .5 ? h : h * 0.62;
       add(w, h, t, cx, cz - d / 2 + t / 2); add(w, h, t, cx, cz + d / 2 - t / 2);
       add(t, h, d - 2 * t + 0.3, cx - w / 2 + t / 2, cz); add(t, hE, d - 2 * t + 0.3, cx + w / 2 - t / 2, cz);
       if (R() < 0.4) {
@@ -792,12 +793,12 @@ function buildTemple() {
 // ---------- vegetation ----------
 function buildPalms(spots) {
   const H = 9;
-  const tr = new THREE.CylinderGeometry(0.2, 0.3, H, 10, 12, true); tr.translate(0, H / 2, 0);
+  const tr = new THREE.CylinderGeometry(0.2, 0.3, H, 7, 5, true); tr.translate(0, H / 2, 0);
   const p = tr.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i) / H; p.setX(i, p.getX(i) + 0.45 * y * y); }
   tr.computeVertexNormals();
   const fr = [];
   for (let i = 0; i < 18; i++) {
-    const L = rr(3.6, 4.6), f = new THREE.PlaneGeometry(L, 1.15, 12, 2); f.translate(L / 2, 0, 0); f.rotateX(-Math.PI / 2);
+    const L = rr(3.6, 4.6), f = new THREE.PlaneGeometry(L, 1.15, 6, 2); f.translate(L / 2, 0, 0); f.rotateX(-Math.PI / 2);
     const droop = i < 6 ? rr(0.16, 0.24) : rr(0.07, 0.12), lift = i < 6 ? 0.1 : rr(0.35, 0.65);
     const q = f.attributes.position;
     for (let k = 0; k < q.count; k++) { const x = q.getX(k), z = q.getZ(k); q.setY(k, lift * x - droop * x * x + Math.abs(z) * 0.28); }
@@ -849,6 +850,21 @@ async function loadBodies() {
       pos.needsUpdate = true; o.geometry.computeVertexNormals();
     });
     BODY.m = m;
+    // a lighter copy of each body for the crowd; the full-detail ones are kept for the people you zoom in on
+    try {
+      await MeshoptSimplifier.ready;
+      const lite = src => {
+        const c = SkeletonUtils.clone(src);
+        c.traverse(o => {
+          if (!o.isSkinnedMesh || !o.geometry.index || o.geometry.attributes.position.isInterleavedBufferAttribute) return;
+          const g = o.geometry.clone(), idx = g.index.array, pos = g.attributes.position.array;
+          const [res] = MeshoptSimplifier.simplify(idx instanceof Uint32Array ? idx : new Uint32Array(idx), pos, 3, Math.floor(idx.length * 0.16 / 3) * 3, 0.05);
+          g.setIndex(new THREE.BufferAttribute(res, 1)); o.geometry = g;
+        });
+        return c;
+      };
+      BODY.mLo = lite(BODY.m); BODY.fLo = lite(BODY.f);
+    } catch (e) { console.warn('body simplify failed', e); }
   } catch (e) { console.warn('body model failed, using simple figures', e); }
 }
 
@@ -857,11 +873,11 @@ const lathe = (pts, seg = 20) => new THREE.LatheGeometry(pts.map(p => new THREE.
 function human(o) {
   if (!BODY.m) return simplePerson(o);
   const root = new THREE.Group();
-  const body = SkeletonUtils.clone(o.female ? BODY.f : BODY.m);
+  const body = SkeletonUtils.clone(o.hi ? (o.female ? BODY.f : BODY.m) : (o.female ? (BODY.fLo || BODY.f) : (BODY.mLo || BODY.m)));
   const s = o.h || 1;
   body.scale.setScalar(s); root.add(body);
   const skin = std({ color: o.skin || '#8a5a3b', roughness: 0.6 });
-  body.traverse(c => { if (c.isSkinnedMesh) { c.material = skin; c.castShadow = true; c.receiveShadow = true; c.frustumCulled = false; } });
+  body.traverse(c => { if (c.isSkinnedMesh) { c.material = skin; c.castShadow = true; c.receiveShadow = true; } });
   const B = n => body.getObjectByName('mixamorig' + n);
   root.updateMatrixWorld(true);
   const at = (bone, geo, mat, cast = true) => { const m = mesh(geo, mat, cast, true); m.scale.setScalar(s); m.position.multiplyScalar(s); root.add(m); m.updateMatrixWorld(true); B(bone).attach(m); return m; };
@@ -871,18 +887,20 @@ function human(o) {
   if (o.cloak) { const g = new THREE.CylinderGeometry(0.17, 0.21, 0.62, 24, 1, true, -0.45, 4.9); g.scale(1, 1, 0.92); g.rotateZ(0.22); g.translate(0.01, 1.19, 0.015); at('Spine2', g, o.cloak); }
   if (o.top) { const g = new THREE.CylinderGeometry(0.16, 0.19, 0.52, 22, 1, true); g.scale(1, 1, 0.92); g.translate(0, 1.25, 0.015); at('Spine2', g, o.top); }
   // head: hair, beard, headband, cap
-  if (o.hair !== 'bald') { const g = new THREE.SphereGeometry(1, 22, 14, 0, Math.PI * 2, 0, Math.PI * 0.55); g.rotateX(-0.5); g.scale(0.1, 0.13, 0.137); g.translate(0, 1.684, -0.008); at('Head', g, M.hair); }
-  if (o.hair === 'bun') { const g = new THREE.SphereGeometry(0.05, 12, 10); g.translate(0, 1.67, -0.14); at('Head', g, M.hair); }
-  if (o.beard) { const g = new THREE.SphereGeometry(1, 14, 10); g.scale(0.074, 0.05 + o.beard * 0.035, 0.06); g.translate(0, 1.592 - o.beard * 0.02, 0.085); at('Head', g, M.hair); }
-  if (o.headband) { const g = new THREE.TorusGeometry(1, 0.12, 6, 36); g.rotateX(Math.PI / 2); g.scale(0.1, 0.1, 0.136); g.rotateX(-0.2); g.translate(0, 1.722, -0.004); at('Head', g, std({ color: o.headband }), false); }
-  // a simple face: eyes, brows, nose and ears
+  // head: hair, beard and a simple face, merged per material so each person stays cheap to draw
+  const hairG = [], skinG = [], darkG = [];
+  if (o.hair !== 'bald') { const g = new THREE.SphereGeometry(1, 22, 14, 0, Math.PI * 2, 0, Math.PI * 0.55); g.rotateX(-0.5); g.scale(0.1, 0.13, 0.137); g.translate(0, 1.684, -0.008); hairG.push(g); }
+  if (o.hair === 'bun') hairG.push(new THREE.SphereGeometry(0.05, 12, 10).translate(0, 1.67, -0.14));
+  if (o.beard) { const g = new THREE.SphereGeometry(1, 14, 10); g.scale(0.074, 0.05 + o.beard * 0.035, 0.06); g.translate(0, 1.592 - o.beard * 0.02, 0.085); hairG.push(g); }
   for (const sg of [-1, 1]) {
-    const e = new THREE.SphereGeometry(0.0115, 10, 8); e.scale(1.25, 0.8, 0.6); e.translate(0.032 * sg, 1.672, 0.111); at('Head', e, M.eye, false);
-    const b = new THREE.BoxGeometry(0.032, 0.007, 0.01); b.rotateZ(-0.12 * sg); b.translate(0.033 * sg, 1.692, 0.114); at('Head', b, M.hair, false);
-    const ear = new THREE.SphereGeometry(0.024, 10, 8); ear.scale(0.45, 1.0, 0.75); ear.translate(0.087 * sg, 1.66, -0.01); at('Head', ear, skin, false);
+    const e = new THREE.SphereGeometry(0.0115, 10, 8); e.scale(1.25, 0.8, 0.6); e.translate(0.032 * sg, 1.672, 0.111); darkG.push(e);
+    const b = new THREE.BoxGeometry(0.032, 0.007, 0.01); b.rotateZ(-0.12 * sg); b.translate(0.033 * sg, 1.692, 0.114); hairG.push(b);
+    const ear = new THREE.SphereGeometry(0.024, 10, 8); ear.scale(0.45, 1.0, 0.75); ear.translate(0.087 * sg, 1.66, -0.01); skinG.push(ear);
   }
-  { const n = new THREE.ConeGeometry(0.017, 0.05, 4); n.rotateX(Math.PI / 2 + 0.5); n.rotateZ(Math.PI / 4); n.translate(0, 1.645, 0.124); at('Head', n, skin, false); }
-  { const l = new THREE.BoxGeometry(0.03, 0.006, 0.01); l.translate(0, 1.612, 0.112); at('Head', l, M.lips, false); }
+  { const n = new THREE.ConeGeometry(0.017, 0.05, 4); n.rotateX(Math.PI / 2 + 0.5); n.rotateZ(Math.PI / 4); n.translate(0, 1.645, 0.124); skinG.push(n); }
+  darkG.push(new THREE.BoxGeometry(0.03, 0.006, 0.01).translate(0, 1.612, 0.112));
+  at('Head', mergeGeometries(hairG.map(ni)), M.hair); at('Head', mergeGeometries(skinG.map(ni)), skin, false); at('Head', mergeGeometries(darkG.map(ni)), M.eye, false);
+  if (o.headband) { const g = new THREE.TorusGeometry(1, 0.12, 6, 36); g.rotateX(Math.PI / 2); g.scale(0.1, 0.1, 0.136); g.rotateX(-0.2); g.translate(0, 1.722, -0.004); at('Head', g, std({ color: o.headband }), false); }
   if (o.cap) { const t = new THREE.TorusGeometry(1, 0.28, 8, 28); t.rotateX(Math.PI / 2); t.scale(0.1, 0.1, 0.135); t.translate(0, 1.745, -0.005); at('Head', t, o.cap); const c = new THREE.CylinderGeometry(1, 1, 0.07, 18); c.scale(0.088, 1, 0.12); c.translate(0, 1.785, -0.005); at('Head', c, o.cap); }
   if (o.bracelet) { const g = new THREE.TorusGeometry(0.042, 0.01, 6, 14); g.rotateY(Math.PI / 2); g.translate(-0.62, 1.438, -0.05); at('RightForeArm', g, std({ color: '#ddd0b4' }), false); }
   if (o.necklace) { const g = new THREE.TorusGeometry(0.085, 0.009, 6, 22); g.rotateX(Math.PI / 2 - 0.5); g.translate(0, 1.45, 0.03); at('Spine2', g, M.carnelian, false); }
@@ -895,6 +913,8 @@ function human(o) {
   if (o.pose === 'sit') body.position.y = -0.45 * s;
   root.userData = { rig: true, mixer, A, B, o, ww: 0, wr: 0, phase: R() * 6 };
   animateHuman(root, 0.001, 0);
+  // bounds for off-screen culling (the animations stay in place, so the rest-pose bounds hold)
+  body.traverse(c => { if (c.isSkinnedMesh) { c.computeBoundingSphere(); c.boundingSphere.radius *= 1.3; } });
   return root;
 }
 // fallback figure if the body model cannot load
@@ -1215,7 +1235,7 @@ async function build() {
   const sb = bale(0.9, 0.62, 0.7); sb.position.set(1.4, 0, 0.5); corner.add(sb);
   const sealing = mesh(new THREE.CylinderGeometry(0.06, 0.065, 0.025, 14).rotateX(Math.PI / 2).translate(0, 0, 0.36), M.clay, false); sealing.position.set(1.4, 0.42, 0.5); corner.add(sealing);
   const seal = mesh(box(0.028, 0.028, 0.009, 0, 0, 0, 1), M.stone, false); seal.position.set(1.55, 0.63, 0.45); seal.rotation.x = -Math.PI / 2; corner.add(seal);
-  const scribe = human(sumerian({ beard: 1.2, hair: 'short', lower: 'long', lowerMat: M.linen, cloak: M.linen, pose: 'sit', arms: 'lap', skin: '#9a6a45' }));
+  const scribe = human(sumerian({ hi: true, beard: 1.2, hair: 'short', lower: 'long', lowerMat: M.linen, cloak: M.linen, pose: 'sit', arms: 'lap', skin: '#9a6a45' }));
   placePerson(scribe, S.x, S.z, rotS);
   const cc = S.clone().addScaledVector(NS, 0.1); addOCol(cc.x, cc.z, 2.8, 1.1, rotS);
   corner.updateMatrixWorld(true);
@@ -1236,7 +1256,7 @@ async function build() {
   for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 1.6; const bd = mesh(new THREE.SphereGeometry(i % 4 ? 0.012 : 0.02, 8, 6).scale(1.6, 1, 1), M.carnelian, false); bd.position.set(Math.cos(a) * 0.14, 0.015, Math.sin(a) * 0.09); bd.rotation.y = -a; beads.add(bd); }
   beads.position.set(tx + 0.7, 0.03, tz + 0.25); world.add(beads);
   const stool = mesh(box(0.55, 0.45, 0.45, 0, 0.225, 0, 1), M.wood); stool.position.set(tx, 0, tz - 1.45); world.add(stool);
-  const trader = human({ skin: '#9b6c47', hair: 'short', beard: 1.8, lower: 'long', lowerMat: M.fleece, cloak: M.fleece, pose: 'sit', arms: 'weigh', nod: 'headShake' });
+  const trader = human({ hi: true, skin: '#9b6c47', hair: 'short', beard: 1.8, lower: 'long', lowerMat: M.fleece, cloak: M.fleece, pose: 'sit', arms: 'weigh', nod: 'headShake' });
   placePerson(trader, tx, tz - 1.4, 0);
   addCol(tx - 1.6, tx + 1.6, tz - 1.8, tz + 1.15);
 
@@ -1263,6 +1283,45 @@ async function build() {
   const dPos = stripPt(0.405, 13.6), dk = donkey(); dk.position.copy(dPos); dk.rotation.y = along(0.405) - Math.PI / 2 + 0.2; world.add(dk); addOCol(dPos.x, dPos.z, 1.0, 0.5, dk.rotation.y);
   const hPos = stripPt(0.418, 12.4); const handler = human(sumerian({ nod: 'agree' })); placePerson(handler, hPos.x, hPos.z, yawBack(0.418) + 0.6);
 
+  // a bigger crowd, as in the film: porters, people talking, people resting by the doors
+  const few = (arr) => mobile ? arr.filter((_, i) => i % 2 === 0) : arr;
+  const dress = () => sumerian({ lower: R() < .5 ? 'long' : 'kilt', hair: R() < .6 ? 'bald' : 'short', beard: R() < .45 ? rr(0.8, 1.6) : 0, cloak: R() < .35 ? pick([M.woolPale, M.linen]) : null });
+  // porters along the storehouse quay, boats to doors
+  few([0.16, 0.33, 0.42, 0.57, 0.63, 0.78, 0.84, 1.0]).forEach((a, k) => walker(placePerson(human(sumerian({ carry: k % 4 === 3 ? 'jar' : 'bale' })), 0, 0), [stripPt(a + 0.012, STRIP.w - 1.0), stripPt(a, STRIP.depth + 2.0)], rr(0.95, 1.3)));
+  // people walking the length of the quay
+  few([[0.1, 0.55, 10.2], [0.5, 1.05, 13.4], [0.2, 0.9, 9.6], [0.3, 1.08, 12.0], [0.15, 0.7, 14.2]]).forEach(([a0, a1, off], k) => {
+    const pts = []; for (let a = a0; a <= a1 + 1e-6; a += 0.05) pts.push(stripPt(a, off));
+    const o = k % 3 === 1 ? { female: true, skin: pick(['#a3734b', '#9a6a45']), hair: 'bun', lower: 'long', lowerMat: M.linen, top: M.linen, carry: k % 2 ? 'jar' : null, h: 0.93 } : dress();
+    walker(placePerson(human(o), 0, 0), k % 2 ? pts.reverse() : pts, rr(0.9, 1.25));
+  });
+  // groups talking on the quay
+  few([[0.27, 11], [0.52, 12.5], [0.72, 10.5], [0.9, 12], [1.02, 11]]).forEach(([a, off]) => {
+    const c = stripPt(a, off), n = 2 + ((R() * 2) | 0);
+    for (let i = 0; i < n; i++) { const ang = i / n * Math.PI * 2 + rr(-0.3, 0.3), x = c.x + Math.sin(ang) * 0.7, z = c.z + Math.cos(ang) * 0.7; placePerson(human(Object.assign(dress(), { nod: pick(['agree', 'headShake', null]) })), x, z, ang + Math.PI); }
+  });
+  // close to the film's view: porters passing the merchants and a pair talking by a door
+  walker(placePerson(human(sumerian({ carry: 'bale' })), 0, 0), [stripPt(0.37, 9.0), stripPt(0.47, 9.4), stripPt(0.56, 9.0)], 1.15);
+  walker(placePerson(human(sumerian({ carry: 'bale' })), 0, 0), [stripPt(0.6, 10.0), stripPt(0.5, 10.4), stripPt(0.41, 10.0)], 1.05);
+  walker(placePerson(human(sumerian({ carry: 'jar' })), 0, 0), [stripPt(0.44, STRIP.w - 1.0), stripPt(0.43, STRIP.depth + 2.0)], 1.0);
+  for (const [off, r] of [[8.6, 0.9], [9.5, -2.3]]) { const p = stripPt(0.455, off); placePerson(human(Object.assign(dress(), { nod: 'agree' })), p.x, p.z, along(0.455) + r); }
+  // people resting on bales by the storehouse doors
+  few([0.22, 0.48, 0.68, 0.81, 0.97]).forEach(a => {
+    const N = cityNormal(a), rot = Math.atan2(N.x, N.z), p = stripPt(a, STRIP.depth + 0.55);
+    const seat = bale(0.8, 0.45, 0.6); seat.position.copy(p); seat.rotation.y = rot; world.add(seat);
+    placePerson(human(Object.assign(dress(), { pose: 'sit', arms: R() < .5 ? 'lap' : null })), p.x, p.z, rot); addOCol(p.x, p.z, 0.6, 0.6, rot);
+  });
+  // the foreshore: unloading at the pier, people crossing to the gate, groups by the shelters
+  few([[[1.5, 69], [-6, 61], [-19, 52]], [[4, 66.5], [-9, 58], [-36, 46]], [[-2, 73.5], [-14, 64], [-44, 58]]]).forEach(r => walker(placePerson(human(sumerian({ carry: 'bale' })), 0, 0), r, rr(1, 1.2)));
+  const gateOut = cityPt(CITY.rout + 3, CITY.gate);
+  few([[[-8, 56], [-30, 44], [gateOut.x, gateOut.z]], [[-20, 60], [-42, 40], [gateOut.x + 2, gateOut.z + 1]], [[-50, 55], [-60, 36], [gateOut.x - 1, gateOut.z + 2]], [[-30, 62], [-12, 48], [0.5, 52]]]).forEach((r, k) => {
+    const o = k === 1 ? { female: true, skin: '#a3734b', hair: 'bun', lower: 'long', lowerMat: M.linen, top: M.linen, carry: 'jar', h: 0.93 } : dress();
+    walker(placePerson(human(o), 0, 0), r, rr(0.95, 1.2));
+  });
+  few([[-52, 47, 3], [-62, 50, 2], [-30, 38, 3], [-12, 60, 2], [-48, 60, 2]]).forEach(([x, z, n]) => {
+    for (let i = 0; i < n; i++) { const ang = i / n * Math.PI * 2 + rr(-0.3, 0.3); placePerson(human(Object.assign(dress(), { nod: pick(['agree', 'headShake', null]) })), x + Math.sin(ang) * 0.7, z + Math.cos(ang) * 0.7, ang + Math.PI); }
+  });
+  { const d2 = donkey(); d2.position.set(-38, 0, 36); d2.rotation.y = 0.9; world.add(d2); addCol(-39, -37, 35.4, 36.6); placePerson(human(sumerian()), -37, 37.2, -2.2); }
+
   // life in the city: people walking the street from the gate to the temple
   const ST = STREET.map(([x, z]) => V(x, z));
   walker(placePerson(human(sumerian({ lower: 'long', hair: 'short', beard: 1.1, cloak: M.woolPale })), 0, 0), ST.slice(0, 4), 1.15);
@@ -1286,14 +1345,14 @@ async function build() {
 
   // priestess and attendant at the temple door
   const doorZ = TERRACE.z1 - 13;
-  const priestess = human({ female: true, skin: '#a8754e', hair: 'short', lower: 'long', lowerMat: M.flounce, top: M.flounce, cloak: M.flounce, cap: M.flounce, arms: 'offer', h: 0.95 });
+  const priestess = human({ hi: true, female: true, skin: '#a8754e', hair: 'short', lower: 'long', lowerMat: M.flounce, top: M.flounce, cloak: M.flounce, cap: M.flounce, arms: 'offer', h: 0.95 });
   placePerson(priestess, 2.6, doorZ + 1.8, 0.2, TERRACE.h);
   placePerson(human(sumerian({ lower: 'long', lowerMat: M.linen, nod: 'agree' })), -2.4, doorZ + 2.6, -0.4, TERRACE.h);
   addCol(2.1, 3.1, doorZ + 1.3, doorZ + 2.3, 1); addCol(-2.9, -1.9, doorZ + 2.1, doorZ + 3.1, 1);
 
   // the two merchants, dressed as in the film
-  leader = human({ skin: '#6f4429', hair: 'bun', headband: '#e2c98f', beard: 1.25, lower: 'long', lowerMat: M.red, cloak: M.red, bracelet: true, h: 0.97 });
-  follower = human({ skin: '#7a4c2e', hair: 'bun', headband: '#c9a46a', beard: 0.7, lower: 'long', lowerMat: M.white, cloak: M.white, necklace: true, h: 0.96 });
+  leader = human({ hi: true, skin: '#6f4429', hair: 'bun', headband: '#e2c98f', beard: 1.25, lower: 'long', lowerMat: M.red, cloak: M.red, bracelet: true, h: 0.97 });
+  follower = human({ hi: true, skin: '#7a4c2e', hair: 'bun', headband: '#c9a46a', beard: 0.7, lower: 'long', lowerMat: M.white, cloak: M.white, necklace: true, h: 0.96 });
   placePerson(leader, 3, 70.5, 0); placePerson(follower, 3.7, 71.4, 0);
   leader.userData.level = 'ground'; follower.userData.level = 'ground';
 
@@ -1545,6 +1604,7 @@ function update() {
   const w = world.userData.water;
   if (w && w.userData.reflective) w.material.uniforms.time.value = t * 0.35;
   const sh = world.userData.ship; if (sh) { sh.position.y = -0.95 + Math.sin(t * 0.8) * 0.04; sh.rotation.x = Math.sin(t * 0.6) * 0.01; }
+  for (const p of people) p.visible = p.getWorldPosition(tmp).distanceToSquared(camera.position) < 260 * 260;
   for (const id in HS) { const h = HS[id]; if (h.follow) h.sprite.position.copy(leader.position).add(tmp.set(0, 2.3, 0)); h.sprite.visible = h.sprite.position.distanceTo(leader.position) < 40 || cam.focus === h; }
   renderer.render(scene, camera);
 }
@@ -1563,7 +1623,7 @@ if (params.has('auto')) $('intro').classList.add('gone');
 if (params.has('noui')) for (const id of ['top', 'tour', 'intro']) $(id).style.display = 'none';
 if (params.get('focus')) setTimeout(() => openHotspot(params.get('focus')), 300);
 if (params.get('cam')) { const [y, p, d] = params.get('cam').split(',').map(Number); Object.assign(camGoal, { yaw: y, pitch: p, dist: d }); Object.assign(cam, { yaw: y, pitch: p, dist: d }); }
-window.__ready = true;
+window.__renderer = renderer; window.__scene = scene; window.__ready = true;
 
 </script>
 </body>
