@@ -1589,7 +1589,7 @@ const voice = new Audio(); voice.preload = 'auto'; window.__voice = voice;
 let voiceOn = true, started = false;
 try { voiceOn = localStorage.getItem('ur-voice') !== 'off'; } catch (e) { }
 function showVoice() { const b = $('voiceBtn'); b.setAttribute('aria-pressed', String(voiceOn)); b.title = voiceOn ? 'Narration on' : 'Narration off'; b.classList.toggle('off', !voiceOn); $('replayBtn').hidden = !voiceOn; }
-function speak(i) { if (!voiceOn || !started) return; voice.src = `audio/stop${i}.mp3`; voice.currentTime = 0; voice.play().catch(() => { }); }
+function speak(i) { if (!voiceOn || !started) return; voice.src = `audio/stop${i}.mp3?v=2`; voice.currentTime = 0; voice.play().catch(() => { }); }
 $('voiceBtn').addEventListener('click', () => {
   voiceOn = !voiceOn; try { localStorage.setItem('ur-voice', voiceOn ? 'on' : 'off'); } catch (e) { }
   showVoice(); if (voiceOn) { started = true; speak(stopIdx); } else voice.pause();
