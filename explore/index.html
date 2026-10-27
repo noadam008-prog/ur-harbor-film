@@ -27,6 +27,10 @@
   .brand { padding:8px 14px; min-width:0; }
   .brand h1 { font:400 18px/1.2 var(--display); margin:0; }
   .brand a { color:var(--muted); font-size:12px; }
+  .topright { display:flex; gap:8px; }
+  #soundBtn { padding:10px 14px; border-radius:999px; display:flex; gap:6px; align-items:center; white-space:nowrap; }
+  #soundBtn.off { color:var(--muted); }
+  @media (max-width: 720px) { #soundBtn span { display:none; } }
   #journalBtn { padding:10px 14px; border-radius:999px; display:flex; gap:8px; align-items:center; white-space:nowrap; }
   #journalBtn b { color:var(--gold); font-weight:600; font-variant-numeric:tabular-nums; }
 
@@ -103,7 +107,10 @@
 
 <div id="top">
   <div class="brand glass"><div class="eyebrow">Ur · c. 2300 BCE</div><h1>Walk Through Ur</h1><a href="../">← back to the film</a></div>
-  <button id="journalBtn" class="glass" type="button">Discoveries <b id="foundCount">0 / 0</b></button>
+  <div class="topright">
+    <button id="soundBtn" class="glass" type="button" aria-pressed="true" aria-label="Ambient sound"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M3 12c2-3 4-3 6 0s4 3 6 0 4-3 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 17c2-3 4-3 6 0s4 3 6 0 4-3 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55"/></svg><span>Sound on</span></button>
+    <button id="journalBtn" class="glass" type="button">Discoveries <b id="foundCount">0 / 0</b></button>
+  </div>
 </div>
 
 <div id="tour" class="glass" hidden>
@@ -1601,11 +1608,76 @@ function teleport(i) {
   leader.rotation.y = s.face ?? s.yaw + Math.PI; follower.rotation.y = leader.rotation.y;
 }
 
+// ---------- ambient sound ----------
+// harbour: the film's recording; city: the same recording muffled to a distant murmur, plus wind and sparrows made here
+const amb = { ctx: null, on: true, cityW: 0 };
+try { amb.on = localStorage.getItem('ur-amb') !== 'off'; } catch (e) { }
+async function startAmbience() {
+  if (!amb.on) return;
+  if (amb.ctx) { if (amb.ctx.state === 'suspended') amb.ctx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  const ctx = amb.ctx = new AC();
+  const gain = (v, to) => { const g = ctx.createGain(); g.gain.value = v; g.connect(to); return g; };
+  amb.master = gain(0, ctx.destination);
+  amb.harbour = gain(0, amb.master); amb.murmur = gain(0, amb.master); amb.wind = gain(0, amb.master); amb.birds = gain(0, amb.master);
+  // wind: looping white noise through a band-pass filter, with slow gusts
+  const nb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), nd = nb.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  const ns = ctx.createBufferSource(); ns.buffer = nb; ns.loop = true;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.6;
+  const gust = ctx.createGain(); gust.gain.value = 0.6;
+  ns.connect(bp); bp.connect(gust); gust.connect(amb.wind); ns.start();
+  const lfo = ctx.createOscillator(); lfo.frequency.value = 0.07; const lg = ctx.createGain(); lg.gain.value = 0.35; lfo.connect(lg); lg.connect(gust.gain); lfo.start();
+  const lfo2 = ctx.createOscillator(); lfo2.frequency.value = 0.045; const lg2 = ctx.createGain(); lg2.gain.value = 160; lfo2.connect(lg2); lg2.connect(bp.frequency); lfo2.start();
+  // sparrows: short chirps at random moments, panned left and right
+  const chirp = () => {
+    if (ctx.state === 'running' && amb.cityW > 0.2) {
+      const t0 = ctx.currentTime + 0.05, n = 2 + ((Math.random() * 4) | 0), base = 3200 + Math.random() * 1800;
+      const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null; if (pan) { pan.pan.value = Math.random() * 1.6 - 0.8; pan.connect(amb.birds); }
+      for (let k = 0; k < n; k++) {
+        const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + k * (0.09 + Math.random() * 0.05);
+        o.type = 'sine'; o.frequency.setValueAtTime(base, t); o.frequency.exponentialRampToValueAtTime(base * (1.25 + Math.random() * 0.3), t + 0.05);
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.05, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0005, t + 0.07);
+        o.connect(g); g.connect(pan || amb.birds); o.start(t); o.stop(t + 0.08);
+      }
+    }
+    setTimeout(chirp, 700 + Math.random() * 3800);
+  };
+  chirp();
+  // the recorded harbour loop, played twice: clear for the harbour, muffled for the city
+  try {
+    const buf = await ctx.decodeAudioData(await (await fetch('audio/harbour.mp3')).arrayBuffer());
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380; lp.Q.value = 0.5;
+    src.connect(amb.harbour); src.connect(lp); lp.connect(amb.murmur); src.start();
+  } catch (e) { console.warn('ambience', e); }
+}
+function updateAmbience() {
+  if (!amb.ctx || !amb.master) return;
+  const t = amb.ctx.currentTime, r = cityR(leader.position.x, leader.position.z);
+  const hw = clamp((r - (CITY.rin - 14)) / 24, 0, 1), cw = 1 - hw, high = leader.userData.level !== 'ground' ? 1 : 0;
+  amb.cityW = cw;
+  amb.harbour.gain.setTargetAtTime(hw * 0.9, t, 0.6);
+  amb.murmur.gain.setTargetAtTime(cw * (0.9 - high * 0.4), t, 0.6);
+  amb.wind.gain.setTargetAtTime(0.05 + cw * 0.06 + high * 0.12, t, 0.8);
+  amb.birds.gain.setTargetAtTime(cw * (1 - high * 0.5), t, 0.6);
+  const talking = voiceOn && !voice.paused;
+  amb.master.gain.setTargetAtTime(amb.on ? (talking ? 0.35 : 0.85) : 0, t, 0.4);
+}
+function showAmb() { const b = $('soundBtn'); b.setAttribute('aria-pressed', String(amb.on)); b.querySelector('span').textContent = amb.on ? 'Sound on' : 'Sound off'; b.classList.toggle('off', !amb.on); }
+$('soundBtn').addEventListener('click', () => {
+  amb.on = !amb.on; try { localStorage.setItem('ur-amb', amb.on ? 'on' : 'off'); } catch (e) { }
+  showAmb(); if (amb.on) startAmbience(); else if (amb.master) amb.master.gain.setTargetAtTime(0, amb.ctx.currentTime, 0.1);
+});
+canvas.addEventListener('pointerdown', () => startAmbience(), { once: true });
+showAmb();
+window.__amb = amb;
+
 // ---------- loop ----------
 const clock = new THREE.Clock(); const tmp = new THREE.Vector3();
 function update() {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-  updateLeader(dt); updateFollower(dt); updatePeople(dt);
+  updateLeader(dt); updateFollower(dt); updatePeople(dt); updateAmbience();
   for (const f of anim) f(t);
   const k = 1 - Math.exp(-dt * 6);
   cam.yaw += (camGoal.yaw - cam.yaw) * k; cam.pitch += (camGoal.pitch - cam.pitch) * k; cam.dist += (camGoal.dist - cam.dist) * k;
@@ -1635,7 +1707,7 @@ $('tour').hidden = false;
 renderer.setAnimationLoop(update);
 loadText('Ready.');
 const sb = $('startBtn'); sb.disabled = false; sb.textContent = 'Begin the walk';
-sb.addEventListener('click', () => { $('intro').classList.add('gone'); canvas.focus(); started = true; speak(stopIdx); });
+sb.addEventListener('click', () => { $('intro').classList.add('gone'); canvas.focus(); started = true; speak(stopIdx); startAmbience(); });
 if (params.has('auto')) $('intro').classList.add('gone');
 if (params.has('noui')) for (const id of ['top', 'tour', 'intro']) $(id).style.display = 'none';
 if (params.get('focus')) setTimeout(() => openHotspot(params.get('focus')), 300);
