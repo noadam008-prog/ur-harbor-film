@@ -648,6 +648,123 @@ function buildRampart() {
 }
 
 const HOUSE_TINTS = ['#ffffff', '#f4ebe0', '#efe2cf', '#fbf3e6', '#e8dac4'];
+// ---------- houses you can walk into ----------
+// all share one plan, in local metres with the street door on the −x side:
+// an entrance room (west), an open court in the middle, a long room north and south, and a back room east
+const ENTER = [
+  { id: 'merchant', cx: -40, cz: -9.5, rot: Math.PI / 2, stand: [-0.7, 0.9] },
+  { id: 'weaver', cx: -22, cz: -9.5, rot: Math.PI / 2, stand: [-1.4, 1.3] },
+  { id: 'school', cx: -5, cz: -17, rot: Math.PI, stand: [-1.5, -1.45] },
+  { id: 'chapel', cx: -7.5, cz: -37, rot: Math.PI, stand: [-0.6, 0.9] },
+];
+const EH = { w: 7, d: 6, t: 0.6, h: 3.6, door: 2.1 };
+const hP = (h, lx, lz, y = 0) => new THREE.Vector3(h.cx + lx * Math.cos(h.rot) + lz * Math.sin(h.rot), y, h.cz - lx * Math.sin(h.rot) + lz * Math.cos(h.rot));
+const hLocal = (h, x, z) => { const dx = x - h.cx, dz = z - h.cz, c = Math.cos(h.rot), s = Math.sin(h.rot); return [dx * c - dz * s, dx * s + dz * c]; };
+const houseIn = h => [hP(h, -9, 0), hP(h, -7, 0), hP(h, -4.6, 0), hP(h, -1.9, 0)];
+const houseOut = h => [hP(h, -1.9, 0), hP(h, -4.6, 0), hP(h, -7, 0), hP(h, -9, 0)];
+const houseYaw = h => { const d = hP(h, -1, 0).sub(hP(h, 0, 0)); return Math.atan2(d.x, d.z); };
+function buildEnterable(h) {
+  const { t, h: H, door } = EH, g = new THREE.Group(); g.position.set(h.cx, 0, h.cz); g.rotation.y = h.rot; world.add(g);
+  const col = pick(HOUSE_TINTS), walls = [], lintels = [];
+  // a wall whose box runs exactly from (x0,z0) to (x1,z1) along one axis, in local coordinates
+  const wall = (x0, z0, x1, z1) => {
+    const L = Math.hypot(x1 - x0, z1 - z0), mxl = (x0 + x1) / 2, mzl = (z0 + z1) / 2, alongX = Math.abs(z1 - z0) < 1e-6;
+    walls.push(tint(worldUV(box(alongX ? L : t, H, alongX ? t : L, mxl, H / 2, mzl, 4)), col));
+    const c = hP(h, mxl, mzl); addOCol(c.x, c.z, (alongX ? L : t) / 2, (alongX ? t : L) / 2, h.rot);
+  };
+  const lintel = (x, z, len, alongX) => lintels.push(tint(worldUV(box(alongX ? len : t, H - door, alongX ? t : len, x, door + (H - door) / 2, z, 4)), col));
+  const W = EH.w - t / 2, D = EH.d - t / 2;
+  wall(-EH.w, -D, EH.w, -D); wall(-EH.w, D, EH.w, D); wall(W, -D + t / 2, W, D - t / 2);
+  wall(-W, -D + t / 2, -W, -0.7); wall(-W, 0.7, -W, D - t / 2); lintel(-W, 0, 1.4, false);
+  for (const s of [-1, 1]) { wall(-W + t / 2, 2.5 * s, -0.65, 2.5 * s); wall(0.65, 2.5 * s, W - t / 2, 2.5 * s); lintel(0, 2.5 * s, 1.3, true); }
+  for (const x of [-2.5, 2.5]) { wall(x, -2.2, x, -0.7); wall(x, 0.7, x, 2.2); lintel(x, 0, 1.4, false); }
+  h.walls = mesh(mergeGeometries(walls), M.house); h.lintels = mesh(mergeGeometries(lintels), M.house); g.add(h.walls, h.lintels); h.cut = 1;
+  // floors: plastered rooms, a brick-paved court
+  const floor = mesh(new THREE.PlaneGeometry(2 * EH.w, 2 * EH.d).rotateX(-Math.PI / 2).translate(0, 0.015, 0), std({ map: plasterTex, color: '#d9c19b' }), false, true);
+  const pv = brickTex.clone(); pv.needsUpdate = true; pv.repeat.set(2.5, 2.5);
+  const court = mesh(new THREE.PlaneGeometry(4.4, 4.4).rotateX(-Math.PI / 2).translate(0, 0.025, 0), std({ map: pv }), false, true);
+  g.add(floor, court); walkables.push(floor, court);
+  // roofs over the rooms, hidden while you are inside so you can see in
+  const rf = [box(2 * EH.w, 0.3, 3.9, 0, H + 0.15, -4.05, 2), box(2 * EH.w, 0.3, 3.9, 0, H + 0.15, 4.05, 2), box(4.6, 0.3, 4.4, -4.7, H + 0.15, 0, 2), box(4.6, 0.3, 4.4, 4.7, H + 0.15, 0, 2)];
+  for (let x = -6.4; x <= 6.5; x += 0.9) { const b = new THREE.CylinderGeometry(0.07, 0.07, 0.5, 6); b.rotateX(Math.PI / 2); b.translate(x, H - 0.25, -EH.d - 0.1); rf.push(b); }
+  h.roof = mesh(mergeGeometries(rf.map(ni)), M.house.clone()); h.roof.material.vertexColors = false; h.roof.material.color.set(col); g.add(h.roof);
+  // a wooden frame round the street door
+  g.add(mesh(mergeGeometries([box(0.4, 0.22, 1.9, -EH.w - 0.12, door + 0.1, 0, 1), box(0.16, door, 0.16, -EH.w - 0.08, door / 2, -0.78, 1), box(0.16, door, 0.16, -EH.w - 0.08, door / 2, 0.78, 1)]), M.wood));
+  h.group = g; h.props = new THREE.Group(); g.add(h.props);
+  FURNISH[h.id](h, h.props);
+}
+const at = (grp, o, x, z, y = 0, r = 0) => { o.position.set(x, y, z); o.rotation.y = r; grp.add(o); return o; };
+const tabletG = () => mesh(box(0.1, 0.03, 0.075, 0, 0.015, 0, 1), M.clay, false);
+const personAt = (h, o, lx, lz, lr = 0, y = 0) => { const p = hP(h, lx, lz); return placePerson(human(o), p.x, p.z, h.rot + lr, y); };
+const FURNISH = {
+  // a copper trader's house, like Ea-nasir's
+  merchant(h, g) {
+    const cu = std({ color: '#9a5a33', metalness: 0.55, roughness: 0.42 });
+    for (let i = 0; i < 9; i++) { const b = mesh(new THREE.SphereGeometry(0.17, 14, 8).scale(1, 0.32, 1), cu); at(g, b, 3.4 + (i % 3) * 0.42, -1.4 + Math.floor(i / 3) * 0.42, 0.06 + (i % 2) * 0.05); }
+    for (let i = 0; i < 6; i++) at(g, jar(rr(1.0, 1.3), pick([M.jar, M.jarPale, M.jarDark])), -5.6 + i * 1.1, -4.6, 0);
+    at(g, bale(0.9, 0.6, 0.7), 1.2, -4.5); at(g, bale(0.9, 0.6, 0.7), 2.2, -4.5);
+    // the archive: tablets in a basket and on a shelf
+    const arch = new THREE.Group(); at(g, arch, -1.5, 4.7);
+    arch.add(mesh(box(2.4, 0.45, 0.5, 0, 0.225, 0, 1), M.clay));
+    for (let i = 0; i < 9; i++) { const tb = tabletG(); tb.position.set(-1 + i * 0.25, 0.46, rr(-0.1, 0.1)); tb.rotation.y = rr(-0.3, 0.3); arch.add(tb); }
+    const bk = basket(0.9); bk.position.set(1.6, 0, 0); arch.add(bk);
+    at(g, mesh(box(1.8, 0.45, 0.6, 0, 0.225, 0, 1), M.clay), 4.6, 4.6);
+    const m1 = personAt(h, { hi: true, skin: '#9b6c47', hair: 'short', beard: 1.4, lower: 'long', lowerMat: M.fleece, cloak: M.fleece, nod: 'headShake' }, 0.8, 0.9, -2.4);
+    h.objs = [g, m1]; h.spot = hP(h, 4.0, -1.0, 1.4);
+  },
+  // a weaver's house: a loom pegged out flat on the court floor
+  weaver(h, g) {
+    const warp = (() => { const [c, x] = makeCanvas(128, 256); x.clearRect(0, 0, 128, 256); for (let i = 2; i < 128; i += 4) { x.fillStyle = 'rgba(232,220,190,.95)'; x.fillRect(i, 0, 1.5, 256); } const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; return tx; })();
+    const loom = new THREE.Group(); at(g, loom, 0.4, 0, 0, Math.PI / 2);
+    for (const z of [-1.0, 1.0]) { const b = new THREE.CylinderGeometry(0.035, 0.035, 1.3, 8); b.rotateZ(Math.PI / 2); b.translate(0, 0.08, z); loom.add(mesh(b, M.wood)); for (const x of [-0.7, 0.7]) loom.add(mesh(new THREE.CylinderGeometry(0.03, 0.025, 0.25, 6).translate(x, 0.1, z + Math.sign(z) * 0.08), M.wood)); }
+    loom.add(mesh(new THREE.PlaneGeometry(1.15, 1.95).rotateX(-Math.PI / 2).translate(0, 0.075, 0), new THREE.MeshStandardMaterial({ map: warp, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide, roughness: 1 }), false, true));
+    loom.add(mesh(new THREE.PlaneGeometry(1.15, 0.8).rotateX(-Math.PI / 2).translate(0, 0.08, 0.57), std({ map: clothTex('#cdb68a', 'fringe'), side: THREE.DoubleSide }), false, true));
+    { const sw = new THREE.CylinderGeometry(0.02, 0.02, 1.25, 6); sw.rotateZ(Math.PI / 2); sw.translate(0, 0.1, 0.16); loom.add(mesh(sw, M.wood)); }
+    // the loom's beams lie across local z at x = −0.6 and 1.4; the weaver kneels at the woven end
+    const w1 = personAt(h, { hi: true, female: true, skin: '#9a6a45', hair: 'bun', lower: 'long', lowerMat: M.linen, top: M.linen, pose: 'sit', arms: 'lap', h: 0.93 }, 1.85, 0, -Math.PI / 2);
+    at(g, mesh(box(0.4, 0.42, 0.5, 0, 0.21, 0, 1), M.wood), 1.9, 0);
+    const w2 = personAt(h, { hi: true, female: true, skin: '#a3734b', hair: 'bun', lower: 'long', lowerMat: M.woolPale, top: M.woolPale, arms: 'offer', h: 0.92 }, -1.6, -1.6, 0.6);
+    // the drop spindle hanging from her hand
+    { const sp = new THREE.Group(); const p = hP(h, -1.45, -1.3); sp.position.set(p.x, 0.62, p.z); sp.add(mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.3, 5), M.wood)); sp.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.02, 12).translate(0, -0.1, 0), M.clay)); sp.add(mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.5, 3).translate(0, 0.4, 0), M.linen, false)); world.add(sp); anim.push(t => { sp.rotation.y = t * 9; }); }
+    for (let i = 0; i < 4; i++) { const b = basket(1.0); at(g, b, 3.4 + (i % 2) * 0.7, -4.5 + Math.floor(i / 2) * 0.8); const f = mesh(new THREE.SphereGeometry(0.22, 10, 8).scale(1, 0.6, 1), M.fleece); at(g, f, 3.4 + (i % 2) * 0.7, -4.5 + Math.floor(i / 2) * 0.8, 0.3); }
+    for (let i = 0; i < 3; i++) { const c = mesh(box(0.7, 0.12 + i * 0.03, 0.5, 0, 0.06, 0, 1), std({ map: clothTex(['#b9a37a', '#8a6a46', '#d6c7a5'][i]) })); at(g, c, -4.8, 4.6, i * 0.14, rr(-0.2, 0.2)); }
+    h.objs = [g, w1, w2]; h.spot = hP(h, 0.4, 0, 1.2);
+  },
+  // a scribal school, the "tablet house"
+  school(h, g) {
+    // two rows of mudbrick benches facing the teacher (who stands on the −x side)
+    for (const x of [0.2, 1.5]) at(g, mesh(box(0.35, 0.4, 2.8, 0, 0.2, 0, 1), M.clay), x, 0);
+    const boys = [];
+    [[0.2, -0.95], [0.2, 0], [0.2, 0.95], [1.5, -0.6], [1.5, 0.6]].forEach(([x, z], i) => {
+      const p = personAt(h, { skin: pick(SKIN.sum), hair: i % 2 ? 'short' : 'bald', lower: 'kilt', lowerMat: pick([M.linen, M.woolPale]), pose: 'sit', arms: 'lap', h: 0.78 }, x, z, -Math.PI / 2);
+      const pt = hP(h, x - 0.32, z); const tb = tabletG(); tb.position.set(pt.x, 0.47, pt.z); tb.rotation.y = h.rot; world.add(tb); boys.push(p);
+    });
+    const teacher = personAt(h, { hi: true, skin: '#9a6a45', hair: 'short', beard: 1.5, lower: 'long', lowerMat: M.linen, cloak: M.linen, arms: 'offer' }, -1.5, 0, Math.PI / 2);
+    // a clay bin for making fresh tablets, and the finished ones drying on a shelf
+    at(g, mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.35, 16, 1, true).translate(0, 0.175, 0), M.clay), 4.6, 4.4);
+    at(g, mesh(new THREE.CircleGeometry(0.43, 16).rotateX(-Math.PI / 2).translate(0, 0.3, 0), std({ color: '#7d6a52', roughness: 0.4 })), 4.6, 4.4);
+    const shelf = new THREE.Group(); at(g, shelf, -1, 5.0); shelf.add(mesh(box(3, 0.5, 0.45, 0, 0.25, 0, 1), M.clay));
+    for (let i = 0; i < 14; i++) { const tb = tabletG(); tb.position.set(-1.35 + (i % 7) * 0.4, 0.5 + Math.floor(i / 7) * 0.035, rr(-0.1, 0.1)); shelf.add(tb); }
+    h.objs = [g, teacher, ...boys]; h.spot = hP(h, 0, 0, 1.6);
+  },
+  // a house with its family chapel and the family vault beneath the floor
+  chapel(h, g) {
+    at(g, mesh(box(0.9, 0.9, 1.4, 0, 0.45, 0, 1), std({ map: plasterTex, color: '#efe3cc' })), 5.9, 0);
+    { const c = hP(h, 5.9, 0); addOCol(c.x, c.z, 0.5, 0.75, h.rot); }
+    at(g, mesh(box(0.6, 0.6, 0.12, 0, 0.3, 0, 1), M.door), 6.36, 0, 1.15, Math.PI / 2);
+    for (const z of [-0.4, 0.4]) at(g, jug(0.5, M.jarPale), 5.8, z, 0.9);
+    at(g, mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.04, 10), std({ color: '#7a4a2a' })), 5.8, 0, 0.92);
+    // the vault: a brick-lined opening in the floor of the back room
+    const vb = brickTex.clone(); vb.needsUpdate = true; vb.repeat.set(2, 1);
+    at(g, mesh(new THREE.PlaneGeometry(2.0, 1.0).rotateX(-Math.PI / 2), std({ color: '#2a1f16' }), false, true), 4.0, 0, 0.03);
+    for (const [w, d, x, z] of [[2.2, 0.15, 0, -0.55], [2.2, 0.15, 0, 0.55], [0.15, 1.25, -1.05, 0], [0.15, 1.25, 1.05, 0]]) at(g, mesh(box(w, 0.08, d, 0, 0.04, 0, 1), std({ map: vb })), 4.0 + x, z);
+    const pr = personAt(h, { hi: true, skin: '#9b6c47', hair: 'short', beard: 1.2, lower: 'long', lowerMat: M.woolPale, cloak: M.woolPale, arms: 'offer' }, 4.8, -1.3, -Math.PI / 2 + 0.3);
+    for (let i = 0; i < 3; i++) at(g, jar(rr(0.8, 1.1), pick([M.jar, M.jarPale])), -5.6 + i * 1.0, -4.6);
+    at(g, mesh(new THREE.CylinderGeometry(0.5, 0.55, 0.18, 14), M.clay), -4.6, 4.4, 0.09);
+    h.objs = [g, pr]; h.spot = hP(h, 5.4, 0, 1.6);
+  },
+};
+
 // the route from the city gate to the temple ramp: kept free of houses
 const GATE_IN = cityPt(CITY.rin - 3, CITY.gate);
 const STREET = [[GATE_IN.x, GATE_IN.z], [-30, 2], [-6, 3], [4, 4], [4, -8], [5, -18], [4.5, -27], [1, -45], [0, RAMP.zBot + 1]];
@@ -662,6 +779,7 @@ function distToStreet(x, z) {
 function buildHouses() {
   const houseGeos = [], doorGeos = [], beamGeos = [], matGeos = [], woodGeos = [];
   const blocked = (x, z, r) => {
+    for (const h of ENTER) { const [lx, lz] = hLocal(h, x, z); if (Math.abs(lx) < EH.w + 2 + r && Math.abs(lz) < EH.d + 2 + r) return true; }
     if (distToStreet(x, z) < 5.5 + r) return true;
     if (x > -32 - r && x < 32 + r && z > -130 - r && z < -58 + r) return true;
     if (x > 5 - r && x < 28 + r && z > -30 - r && z < -10 + r) return true;
@@ -1174,6 +1292,32 @@ const INFO = {
     src: 'Disk of Enheduanna, Penn Museum B16665.' },
 };
 
+
+Object.assign(INFO, {
+  eanasir: { title: 'A copper merchant\u2019s house', tag: 'later', where: 'Near the gate',
+    body: ['About four centuries after this scene, a merchant called Ea-nasir lived in a house like this at Ur. He bought copper that came by sea through Dilmun (Bahrain) and sold it on in the city.',
+      'Copper travelled as rounded \u201cbun\u201d ingots, the shape left by the bottom of a smelting pit. Ea-nasir kept his business letters in his house, and Woolley found them there, including the famous complaint from his customer Nanni.'],
+    evidence: '<b>Later evidence:</b> the house and its tablets date to about 1750 BCE. Copper from Magan and Dilmun already reached Ur in Sargon\u2019s time.',
+    src: 'Woolley & Mallowan, Ur Excavations VII (1976); Leemans, \u201cForeign Trade in the Old Babylonian Period\u201d (1960).' },
+  weaving: { title: 'Weaving wool', tag: 'ev', where: 'Weaver\u2019s house',
+    body: ['Wool cloth was southern Mesopotamia\u2019s great product and its main export: it paid for copper, stone and timber that came in by ship.',
+      'Women spun the wool with a drop spindle and wove it on a horizontal loom pegged out flat on the ground, shown on cylinder seals of the period. Clay and stone spindle whorls turn up on almost every site.',
+      'A few generations later, under the kings of the Third Dynasty of Ur (about 2100\u20132000 BCE), temple and palace workshops at Ur employed thousands of women and children as weavers, and their rations are recorded on tablets.'],
+    evidence: '<b>Known:</b> looms on seals, spindle whorls, and the Ur III textile archives. <b>Reconstruction:</b> this household loom.',
+    src: 'Waetzoldt, \u201cUntersuchungen zur neusumerischen Textilindustrie\u201d (1972); E. W. Barber, \u201cPrehistoric Textiles\u201d (1991).' },
+  school: { title: 'The tablet house: a school', tag: 'later', where: 'School',
+    body: ['Boys who would become scribes learned in the e-dubba, the \u201ctablet house\u201d. They copied lists of signs, words, proverbs and model contracts, over and over: the teacher wrote a line and the pupil copied it beside it.',
+      'Schooling was hard. A Sumerian story about a schoolboy has him caned for talking, for standing up without permission and for bad handwriting.',
+      'Practice tablets from schools are known from about 2600 BCE, long before Sargon. At Ur, Woolley found a house in Broad Street full of school tablets, mistakes and all.'],
+    evidence: '<b>Known:</b> early school texts from Shuruppak and Abu Salabikh (about 2600 BCE). <b>Later evidence:</b> the Ur school tablets date to about 1800 BCE.',
+    src: 'S. N. Kramer, \u201cSchooldays\u201d (1949); Woolley & Mallowan, Ur Excavations VII (1976).' },
+  chapel: { title: 'The family chapel', tag: 'later', where: 'Chapel house',
+    body: ['Many houses at Ur had a small chapel at the back, with a raised altar, a niche and a place for offerings.',
+      'Under its floor the family buried their dead in a brick-built vault, opened again for each new burial, so the ancestors stayed with the household. Babies were often buried in pots.'],
+    evidence: '<b>Later evidence:</b> the chapels and vaults Woolley excavated date to about 1900\u20131750 BCE. Burials under house floors are much older.',
+    src: 'Woolley & Mallowan, Ur Excavations VII: The Old Babylonian Period (1976).' },
+});
+
 // ---------- build everything ----------
 let leader, follower, courtFloor;
 const sumerian = (extra = {}) => Object.assign({ skin: pick(SKIN.sum), hair: 'bald', lower: 'kilt', lowerMat: pick([M.wool, M.woolPale, M.wool]), h: rr(0.92, 0.98) }, extra);
@@ -1189,6 +1333,7 @@ async function build() {
   await buildLand(); buildRampart();
   loadText('Building houses and storehouses…'); await frame();
   buildHouses(); courtFloor = buildCourtyardHouse(); buildStrip();
+  for (const h of ENTER) buildEnterable(h);
   loadText('Raising the temple terrace…'); await frame();
   buildTemple();
 
@@ -1405,21 +1550,36 @@ async function build() {
   hotspot('temple', new THREE.Vector3(0, 17, doorZ), { dist: 46, pitch: 0.25, yaw: 0.55, focusAt: new THREE.Vector3(0, 8, (TERRACE.z0 + TERRACE.z1) / 2) });
   hotspot('priestess', new THREE.Vector3(2.6, TERRACE.h + 2.1, doorZ + 1.8), { dist: 3.2, pitch: 0.12, yaw: 0.2, focusAt: new THREE.Vector3(2.6, TERRACE.h + 1.3, doorZ + 1.8), objs: [priestess] });
 
+  const HD = Object.fromEntries(ENTER.map(h => [h.id, h]));
+  hotspot('eanasir', HD.merchant.spot, { dist: 6, pitch: 0.75, yaw: houseYaw(HD.merchant), focusAt: hP(HD.merchant, 1.5, -1, 0.6), objs: HD.merchant.objs });
+  hotspot('weaving', HD.weaver.spot, { dist: 5, pitch: 0.8, yaw: houseYaw(HD.weaver), focusAt: hP(HD.weaver, 0.4, 0.4, 0.3), objs: HD.weaver.objs });
+  hotspot('school', HD.school.spot, { dist: 6, pitch: 0.8, yaw: houseYaw(HD.school), focusAt: hP(HD.school, 0.5, 0, 0.5), objs: HD.school.objs });
+  hotspot('chapel', HD.chapel.spot, { dist: 5, pitch: 0.8, yaw: houseYaw(HD.chapel) + 0.4, focusAt: hP(HD.chapel, 5, 0, 0.5), objs: HD.chapel.objs });
   walkables.push(courtFloor);
 }
 
 // ---------- tour ----------
 const STOP_A = 0.385;
 const gateN = cityNormal(CITY.gate);
+const HS_ = id => ENTER.find(h => h.id === id);
+const inStop = (id, title, text, spots) => { const h = HS_(id); return { title, pos: hP(h, ...h.stand), yaw: houseYaw(h) + 0.5, pitch: 1.05, dist: 11, text, spots, audio: 'house_' + id }; };
 const STOPS = [
-  { title: 'The stone pier', pos: V(3, 70.5), face: Math.PI / 2, yaw: -0.75, pitch: 0.45, dist: 30, text: 'The ship from Meluhha has moored at the stone pier below the city’s great rampart, after a voyage of more than 2,000 km up the Gulf.', spots: ['ship', 'merchants', 'rampart'] },
-  { title: 'The storehouse quay', pos: stripPt(STOP_A, 11.5), path: [V(-3, 66), V(-3, 58), V(2, 52), ...[0.1, 0.2, 0.3].map(a => stripPt(a, 11.5))], face: yawBack(STOP_A), yaw: yawBack(STOP_A), pitch: 0.12, dist: 7.5, text: 'Along the river the quay narrows under the rampart. Storehouses line it, reed boats tie up opposite, and a scribe records what comes ashore.', spots: ['kar', 'goods', 'scribe', 'seal', 'donkey'] },
-  { title: 'Trading on the foreshore', pos: V(-21.5, 48.2), path: [...[0.3, 0.2, 0.1].map(a => stripPt(a, 11.5)), V(2, 52), V(-6, 55), V(-17, 51)], yaw: 2.2, pitch: 0.32, dist: 7, text: 'On the open foreshore a Sumerian trader weighs carnelian beads against a set of tiny stone cubes.', spots: ['weights', 'beads', 'palm'] },
-  { title: 'The city gate', pos: cityPt(CITY.rout + 7, CITY.gate), path: [V(-30, 50), V(-50, 36)], yaw: Math.atan2(gateN.x, gateN.z) + 0.15, pitch: 0.3, dist: 12, text: 'A single gate leads through the great sloping rampart into the city.', spots: ['rampart'] },
-  { title: 'A courtyard house', pos: V(5, 4), path: [cityPt(CITY.rout - 6, CITY.gate), GATE_IN, V(-30, 2), V(-6, 3)], yaw: -1.2, text: 'The door on your right opens into a house. Walk in: it is built around an open courtyard.', spots: ['house'] },
-  { title: 'Bread and grain', pos: V(11, -20), path: [V(4, -6), V(5, -18)], yaw: -1.0, text: 'A small open square with a bread oven and a woman grinding barley.', spots: ['oven'] },
-  { title: 'The temple terrace', pos: V(0, RAMP.zBot + 2.5), path: [V(4.5, -27), V(1, -45), V(0.5, RAMP.zBot + 7)], yaw: 0.05, pitch: 0.42, text: 'A ramp climbs the brick terrace of Nanna, the moon god who watched over Ur.', spots: ['temple'] },
-  { title: 'The temple of Nanna', pos: V(0, TERRACE.z1 - 6), path: [V(0, RAMP.zBot - 3), V(0, RAMP.zTop + 0.5)], yaw: 0.2, text: 'At the temple door stands Enheduanna, Sargon’s daughter and high priestess of the moon god.', spots: ['priestess', 'temple'] },
+  { title: 'The stone pier', audio: 'stop0', pos: V(3, 70.5), face: Math.PI / 2, yaw: -0.75, pitch: 0.45, dist: 30, text: 'The ship from Meluhha has moored at the stone pier below the city’s great rampart, after a voyage of more than 2,000 km up the Gulf.', spots: ['ship', 'merchants', 'rampart'] },
+  { title: 'The storehouse quay', audio: 'stop1', pos: stripPt(STOP_A, 11.5), path: [V(-3, 66), V(-3, 58), V(2, 52), ...[0.1, 0.2, 0.3].map(a => stripPt(a, 11.5))], face: yawBack(STOP_A), yaw: yawBack(STOP_A), pitch: 0.12, dist: 7.5, text: 'Along the river the quay narrows under the rampart. Storehouses line it, reed boats tie up opposite, and a scribe records what comes ashore.', spots: ['kar', 'goods', 'scribe', 'seal', 'donkey'] },
+  { title: 'Trading on the foreshore', audio: 'stop2', pos: V(-21.5, 48.2), path: [...[0.3, 0.2, 0.1].map(a => stripPt(a, 11.5)), V(2, 52), V(-6, 55), V(-17, 51)], yaw: 2.2, pitch: 0.32, dist: 7, text: 'On the open foreshore a Sumerian trader weighs carnelian beads against a set of tiny stone cubes.', spots: ['weights', 'beads', 'palm'] },
+  { title: 'The city gate', audio: 'stop3', pos: cityPt(CITY.rout + 7, CITY.gate), path: [V(-30, 50), V(-50, 36)], yaw: Math.atan2(gateN.x, gateN.z) + 0.15, pitch: 0.3, dist: 12, text: 'A single gate leads through the great sloping rampart into the city.', spots: ['rampart'] },
+  Object.assign(inStop('merchant', 'A copper merchant’s house', 'Just inside the gate, a merchant keeps copper ingots in his storeroom and his business letters on a shelf. Walk through the rooms.', ['eanasir']),
+    { path: [cityPt(CITY.rout - 6, CITY.gate), GATE_IN, ...houseIn(HS_('merchant'))] }),
+  Object.assign(inStop('weaver', 'A weaver’s house', 'In the next house two women make woollen cloth: one spins with a drop spindle, the other weaves on a loom pegged out on the floor.', ['weaving']),
+    { path: [...houseOut(HS_('merchant')), ...houseIn(HS_('weaver'))] }),
+  { title: 'A courtyard house', audio: 'stop4', pos: V(5, 4), path: [...houseOut(HS_('weaver')), V(-6, 3)], yaw: -1.2, text: 'The door on your right opens into a house. Walk in: it is built around an open courtyard.', spots: ['house'] },
+  Object.assign(inStop('school', 'The tablet house', 'Boys copy signs onto clay tablets while their teacher watches. Fresh tablets are made from the clay bin in the corner.', ['school']),
+    { path: [V(4, -6), ...houseIn(HS_('school'))] }),
+  { title: 'Bread and grain', audio: 'stop5', pos: V(11, -20), path: [...houseOut(HS_('school')), V(6, -19)], yaw: -1.0, text: 'A small open square with a bread oven and a woman grinding barley.', spots: ['oven'] },
+  Object.assign(inStop('chapel', 'A family chapel', 'At the back of this house is the family chapel, with an altar and, under the floor, the vault where the family buries its dead.', ['chapel']),
+    { path: [V(5, -24), V(4.5, -27), ...houseIn(HS_('chapel'))] }),
+  { title: 'The temple terrace', audio: 'stop6', pos: V(0, RAMP.zBot + 2.5), path: [...houseOut(HS_('chapel')), V(1, -45), V(0.5, RAMP.zBot + 7)], yaw: 0.05, pitch: 0.42, text: 'A ramp climbs the brick terrace of Nanna, the moon god who watched over Ur.', spots: ['temple'] },
+  { title: 'The temple of Nanna', audio: 'stop7', pos: V(0, TERRACE.z1 - 6), path: [V(0, RAMP.zBot - 3), V(0, RAMP.zTop + 0.5)], yaw: 0.2, text: 'At the temple door stands Enheduanna, Sargon’s daughter and high priestess of the moon god.', spots: ['priestess', 'temple'] },
 ];
 let stopIdx = 0;
 
@@ -1608,7 +1768,7 @@ const voice = new Audio(); voice.preload = 'auto'; window.__voice = voice;
 let voiceOn = true, started = false;
 try { voiceOn = localStorage.getItem('ur-voice') !== 'off'; } catch (e) { }
 function showVoice() { const b = $('voiceBtn'); b.setAttribute('aria-pressed', String(voiceOn)); b.title = voiceOn ? 'Narration on' : 'Narration off'; b.classList.toggle('off', !voiceOn); $('replayBtn').hidden = !voiceOn; }
-function speak(i) { if (!voiceOn || !started) return; voice.src = `audio/stop${i}.mp3?v=2`; voice.currentTime = 0; voice.play().catch(() => { }); }
+function speak(i) { if (!voiceOn || !started) return; voice.src = `audio/${STOPS[i].audio}.mp3?v=2`; voice.currentTime = 0; voice.play().catch(() => { }); }
 $('voiceBtn').addEventListener('click', () => {
   voiceOn = !voiceOn; try { localStorage.setItem('ur-voice', voiceOn ? 'on' : 'off'); } catch (e) { }
   showVoice(); if (voiceOn) { started = true; speak(stopIdx); } else voice.pause();
@@ -1624,7 +1784,7 @@ function teleport(i) {
   follower.position.set(s.pos.x + 0.7, heightAt(lv, s.pos.z + 0.9), s.pos.z + 0.9); follower.userData.level = lv;
   trail.length = 0; const p = leader.position.clone(); p.level = lv; trail.push(p);
   stopIdx = i; arrive(i); Object.assign(cam, { yaw: camGoal.yaw, pitch: camGoal.pitch, dist: camGoal.dist }); cam.target.copy(leader.position).add(new THREE.Vector3(0, 1.05, 0));
-  leader.rotation.y = s.face ?? s.yaw + Math.PI; follower.rotation.y = leader.rotation.y;
+  leader.rotation.y = s.face ?? s.yaw + Math.PI; follower.rotation.y = leader.rotation.y; cutSnap = true;
 }
 
 // ---------- ambient sound ----------
@@ -1662,6 +1822,25 @@ $('soundBtn').addEventListener('click', () => {
 canvas.addEventListener('pointerdown', () => startAmbience(), { once: true });
 showAmb();
 window.__amb = amb;
+
+// ---------- inside a house: lift its roof and look down into it ----------
+let insideHouse = null, camBefore = null, cutSnap = false;
+function updateInside(dt) {
+  const k = cutSnap ? 1 : 1 - Math.exp(-dt * 5); cutSnap = false;
+  let now = null;
+  for (const h of ENTER) { const [lx, lz] = hLocal(h, leader.position.x, leader.position.z); if (Math.abs(lx) < EH.w + 0.2 && Math.abs(lz) < EH.d + 0.2) now = h; }
+  for (const h of ENTER) {
+    const target = h === now ? 0.3 : 1; h.cut += (target - h.cut) * k;
+    if (Math.abs(target - h.cut) < 0.002) h.cut = target;
+    h.walls.scale.y = h.cut; h.lintels.visible = h.roof.visible = h.cut > 0.95;
+  }
+  if (now === insideHouse) return;
+  if (now) {
+    if (cam.mode === 'follow') { camBefore = camBefore || { pitch: camGoal.pitch, dist: camGoal.dist }; camGoal.pitch = Math.max(camGoal.pitch, 1.0); camGoal.dist = clamp(camGoal.dist, 8, 12); }
+  } else if (camBefore && cam.mode === 'follow' && tourArrive === null) { camGoal.pitch = camBefore.pitch; camGoal.dist = camBefore.dist; camBefore = null; }
+  else camBefore = null;
+  insideHouse = now;
+}
 
 // ---------- the small map ----------
 // drawn from the same layout as the 3D world: north (−z) is up, the river on the right
@@ -1702,6 +1881,12 @@ function drawMapStatic() {
   // storehouses along the quay
   g.fillStyle = '#b89668';
   for (let a = 0.14; a < 1.1; a += 0.02) { const p = stripPt(a, STRIP.depth / 2); g.fillRect(mx(p.x) - 1.5, mz(p.z) - 1.5, 3, 3); }
+  // houses you can walk into
+  for (const h of ENTER) {
+    const cs = [[-EH.w, -EH.d], [EH.w, -EH.d], [EH.w, EH.d], [-EH.w, EH.d]].map(([x, z]) => hP(h, x, z));
+    g.fillStyle = '#a57c4e'; g.beginPath(); cs.forEach((p, i) => i ? g.lineTo(mx(p.x), mz(p.z)) : g.moveTo(mx(p.x), mz(p.z))); g.closePath(); g.fill();
+    const c = hP(h, 0, 0); g.fillStyle = '#e6d3ae'; g.fillRect(mx(c.x) - 1.5, mz(c.z) - 1.5, 3, 3);
+  }
   // temple terrace and temple
   g.fillStyle = '#c4a57a'; g.fillRect(mx(TERRACE.x0), mz(TERRACE.z0), mx(TERRACE.x1) - mx(TERRACE.x0), mz(TERRACE.z1) - mz(TERRACE.z0));
   g.fillStyle = '#f2ead8'; g.fillRect(mx(-11), mz(TERRACE.z0 + 7), mx(11) - mx(-11), mz(TERRACE.z1 - 13) - mz(TERRACE.z0 + 7));
@@ -1716,7 +1901,7 @@ function drawMapStatic() {
 function stopXY(i) { const p = STOPS[i].pos; return [mx(p.x), mz(p.z)]; }
 let mapTick = 0;
 function drawMap() {
-  if (!mapOpen || !leader) return;
+  if (!mapOpen || !leader || mapCv.clientWidth === 0) return;   // hidden (folded, or covered by a panel on phones)
   if (!mapStatic || mapCv.clientWidth !== mapW) drawMapStatic();
   if ((mapTick++ & 1) && !params.has('noui')) return;   // every other frame is plenty
   const g = mapCtx; g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(mapStatic, 0, 0); g.setTransform(mapDpr, 0, 0, mapDpr, 0, 0);
@@ -1763,7 +1948,7 @@ setMapOpen(mapOpen);
 const clock = new THREE.Clock(); const tmp = new THREE.Vector3();
 function update() {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-  updateLeader(dt); updateFollower(dt); updatePeople(dt); updateAmbience(); drawMap();
+  updateLeader(dt); updateFollower(dt); updatePeople(dt); updateAmbience(); updateInside(dt); drawMap();
   for (const f of anim) f(t);
   const k = 1 - Math.exp(-dt * 6);
   cam.yaw += (camGoal.yaw - cam.yaw) * k; cam.pitch += (camGoal.pitch - cam.pitch) * k; cam.dist += (camGoal.dist - cam.dist) * k;
@@ -1798,7 +1983,9 @@ if (params.has('auto')) $('intro').classList.add('gone');
 if (params.has('noui')) for (const id of ['top', 'tour', 'intro', 'mapBox']) $(id).style.display = 'none';
 if (params.get('focus')) setTimeout(() => openHotspot(params.get('focus')), 300);
 if (params.get('cam')) { const [y, p, d] = params.get('cam').split(',').map(Number); Object.assign(camGoal, { yaw: y, pitch: p, dist: d }); Object.assign(cam, { yaw: y, pitch: p, dist: d }); }
-window.__renderer = renderer; window.__scene = scene; window.__ready = true;
+window.__renderer = renderer; window.__scene = scene;
+window.__sim = { goStop, step: d => { updateLeader(d); updateFollower(d); }, state: () => ({ i: stopIdx, arr: tourArrive, x: +leader.position.x.toFixed(1), z: +leader.position.z.toFixed(1), path: leader.userData.path ? leader.userData.path.length : 0, n: STOPS.length }) };
+window.__ready = true;
 
 </script>
 </body>
