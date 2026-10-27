@@ -42,6 +42,8 @@
   .btn { border:0; border-radius:999px; padding:10px 16px; font-weight:600; background:var(--carnelian); color:#1b0f08; }
   .btn.ghost { background:rgba(255,255,255,.08); color:var(--text); border:1px solid var(--line); font-weight:500; }
   .btn:disabled { opacity:.4; cursor:default; }
+  .btn.icon { padding:10px 12px; display:inline-grid; place-items:center; }
+  #voiceBtn .cross { display:none; } #voiceBtn.off .wave { display:none; } #voiceBtn.off .cross { display:inline; } #voiceBtn.off { color:var(--muted); }
   .hint { font-size:12px; color:var(--muted); }
 
   #panel { position:fixed; top:84px; right:12px; bottom:12px; width:min(410px, calc(100vw - 24px)); overflow:auto;
@@ -111,6 +113,8 @@
       <h2 id="stopTitle">The quay</h2>
     </div>
     <div class="navbtns">
+      <button class="btn ghost icon" id="replayBtn" type="button" aria-label="Replay narration" title="Replay narration"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5a7 7 0 1 1-6.6 4.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 4v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="btn ghost icon" id="voiceBtn" type="button" aria-label="Narration" aria-pressed="true"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="wave" d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="cross" d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       <button class="btn ghost" id="prevBtn" type="button" aria-label="Previous stop">‹</button>
       <button class="btn" id="nextBtn" type="button">Walk on ›</button>
     </div>
@@ -142,6 +146,7 @@
     <ul>
       <li>Click anything marked <b style="color:var(--gold)">i</b>, or the people and objects themselves, to zoom in and read what archaeologists actually found.</li>
       <li>Every entry says whether it is direct evidence, later evidence or reconstruction.</li>
+      <li>A narrator speaks at each stop; you can switch the voice off or replay it from the bar at the bottom.</li>
       <li>The city is shown at about a fifth of its real size, and people and buildings are simplified.</li>
     </ul>
     <button class="btn" id="startBtn" type="button" disabled>Building the city…</button>
@@ -1564,14 +1569,26 @@ function showStop(i) {
   $('nextBtn').textContent = i === STOPS.length - 1 ? 'End of the walk' : 'Walk on ›';
   renderChips();
 }
-function arrive(i) { stopIdx = i; showStop(i); const s = STOPS[i]; leader.userData.faceTo = s.face; camGoal.yaw = s.yaw; camGoal.pitch = s.pitch || 0.38; camGoal.dist = s.dist || 8.5; }
+function arrive(i) { stopIdx = i; showStop(i); speak(i); const s = STOPS[i]; leader.userData.faceTo = s.face; camGoal.yaw = s.yaw; camGoal.pitch = s.pitch || 0.38; camGoal.dist = s.dist || 8.5; }
 function goStop(i) {
   if (i < 0 || i >= STOPS.length) return; closePanel();
   const s = STOPS[i];
   const pts = i > stopIdx ? STOPS.slice(stopIdx + 1, i + 1).flatMap(x => [...(x.path || []), x.pos]) : STOPS.slice(i + 1, stopIdx + 1).reverse().flatMap(x => [x.pos, ...[...(x.path || [])].reverse()]).slice(1).concat([s.pos]);
-  setPath(pts); leader.userData.faceTo = undefined; tourArrive = i;
+  setPath(pts); leader.userData.faceTo = undefined; tourArrive = i; voice.pause();
   $('stopNum').textContent = `Walking to stop ${i + 1}`; $('stopTitle').textContent = s.title; $('stopText').textContent = ''; $('chips').innerHTML = '';
 }
+// narration: one recorded line per stop, played when the merchants arrive
+const voice = new Audio(); voice.preload = 'auto'; window.__voice = voice;
+let voiceOn = true, started = false;
+try { voiceOn = localStorage.getItem('ur-voice') !== 'off'; } catch (e) { }
+function showVoice() { const b = $('voiceBtn'); b.setAttribute('aria-pressed', String(voiceOn)); b.title = voiceOn ? 'Narration on' : 'Narration off'; b.classList.toggle('off', !voiceOn); $('replayBtn').hidden = !voiceOn; }
+function speak(i) { if (!voiceOn || !started) return; voice.src = `audio/stop${i}.mp3`; voice.currentTime = 0; voice.play().catch(() => { }); }
+$('voiceBtn').addEventListener('click', () => {
+  voiceOn = !voiceOn; try { localStorage.setItem('ur-voice', voiceOn ? 'on' : 'off'); } catch (e) { }
+  showVoice(); if (voiceOn) { started = true; speak(stopIdx); } else voice.pause();
+});
+$('replayBtn').addEventListener('click', () => { started = true; speak(stopIdx); });
+showVoice();
 $('nextBtn').addEventListener('click', () => goStop(stopIdx + 1));
 $('prevBtn').addEventListener('click', () => goStop(stopIdx - 1));
 
@@ -1618,7 +1635,7 @@ $('tour').hidden = false;
 renderer.setAnimationLoop(update);
 loadText('Ready.');
 const sb = $('startBtn'); sb.disabled = false; sb.textContent = 'Begin the walk';
-sb.addEventListener('click', () => { $('intro').classList.add('gone'); canvas.focus(); });
+sb.addEventListener('click', () => { $('intro').classList.add('gone'); canvas.focus(); started = true; speak(stopIdx); });
 if (params.has('auto')) $('intro').classList.add('gone');
 if (params.has('noui')) for (const id of ['top', 'tour', 'intro']) $(id).style.display = 'none';
 if (params.get('focus')) setTimeout(() => openHotspot(params.get('focus')), 300);
