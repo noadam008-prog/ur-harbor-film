@@ -161,6 +161,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Water } from 'three/addons/objects/Water.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const ASSET = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/';
 const $ = id => document.getElementById(id);
@@ -183,7 +184,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 // golden evening haze, as in the last shot of the film
 const HAZE = new THREE.Color('#e9b87c');
-scene.fog = new THREE.Fog(HAZE, 60, 400);
+scene.fog = new THREE.Fog(HAZE, 140, 950);
 scene.background = HAZE;
 const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 3000);
 
@@ -365,30 +366,54 @@ const smokeTex = (() => {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 })();
 
-// landscape: one big painted map for the plain (fields, canals, harbour)
-const CITY = { cx: 0, cz: -70, rin: 92, rout: 108 };
-const LAND = { x0: -600, x1: 600, z0: -600, z1: 62 };
+// ---------- the map, matched to the film's opening aerial ----------
+// An oval walled city; the river curves along its east side, leaving a narrow storehouse quay under the rampart;
+// to the south-west lies an open sandy foreshore with a stone pier where the ship moors.
+const CITY = { cx: 0, cz: -70, sx: 1.25, sz: 0.9, rin: 100, rout: 116, gate: -0.45, gap: 0.03 };
+const cityN = (x, z) => [(x - CITY.cx) / CITY.sx, (z - CITY.cz) / CITY.sz];
+const cityR = (x, z) => { const [u, w] = cityN(x, z); return Math.hypot(u, w); };
+const cityA = (x, z) => { const [u, w] = cityN(x, z); return Math.atan2(u, w); };
+const cityPt = (r, a) => new THREE.Vector3(CITY.cx + Math.sin(a) * r * CITY.sx, 0, CITY.cz + Math.cos(a) * r * CITY.sz);
+const cityNormal = a => new THREE.Vector3(Math.sin(a) / CITY.sx, 0, Math.cos(a) / CITY.sz).normalize();
+const cityTangent = a => new THREE.Vector3(Math.cos(a) * CITY.sx, 0, -Math.sin(a) * CITY.sz).normalize();
+const footZ = x => CITY.cz + CITY.rout * CITY.sz * Math.sqrt(Math.max(0, 1 - (x / (CITY.rout * CITY.sx)) ** 2));
+const STRIP = { w: 16, a0: 0.06, a1: 1.2, depth: 6.8 };   // quay width from the rampart foot, and storehouse depth
+const stripPt = (a, off) => cityPt(CITY.rout, a).addScaledVector(cityNormal(a), off);
+const BANK = [[-40, 1400], [-30, 600], [-15, 200], [-6, 90], [-4.2, 74], [-2.4, 63], [0.6, 56.8], [4.6, 52.6]];
+for (let a = STRIP.a0; a <= STRIP.a1 + 1e-6; a += 0.06) { const p = stripPt(a, STRIP.w); BANK.push([p.x, p.z]); }
+BANK.push([172, -80], [205, -250], [250, -700], [300, -1400]);
+const FAR = [[110, 1400], [120, 500], [130, 200], [150, 120], [190, 70], [240, 10], [290, -80], [340, -300], [420, -700], [470, -1400]];
+function lineZ(pts, x) { for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]) { const [x0, z0] = pts[i - 1], [x1, z1] = pts[i]; return z0 + (z1 - z0) * (x - x0) / (x1 - x0); } return pts[pts.length - 1][1]; }
+const bankZ = x => lineZ(BANK, x);
+const PIER = { x0: -6, x1: 8, z0: 64, z1: 75 };
+const onPier = (x, z) => x > PIER.x0 && x < PIER.x1 && z > PIER.z0 && z < PIER.z1;
+const LAND = { x0: -600, x1: 600, z0: -600, z1: 400 };
+
 const landTex = (() => {
-  const W = 2048, H = 1152; const [c, g] = makeCanvas(W, H);
+  const W = 2048, H = 2048; const [c, g] = makeCanvas(W, H);
   const px = x => (x - LAND.x0) / (LAND.x1 - LAND.x0) * W, pz = z => (z - LAND.z0) / (LAND.z1 - LAND.z0) * H;
-  const sx = W / (LAND.x1 - LAND.x0);
+  const sx = W / (LAND.x1 - LAND.x0), sz = H / (LAND.z1 - LAND.z0);
   g.fillStyle = '#c4a173'; g.fillRect(0, 0, W, H);
   const fr = rng(7);
   for (let z = LAND.z0; z < LAND.z1; z += 22) for (let x = LAND.x0; x < LAND.x1; x += 30) {
-    const cx = x + 15, cz = z + 11, d = Math.hypot(cx - CITY.cx, cz - CITY.cz);
-    if (d < CITY.rout + 22 || cz > 16) continue;
+    const cx = x + 15, cz = z + 11;
+    if (cityR(cx, cz) < CITY.rout + 24 || (cz > -75 && cz < 135 && cx > -150 && cx < 210) || cz > bankZ(cx) - 6) continue;
     const cols = ['#7f8b4b', '#8f9750', '#a6a05a', '#c2a65e', '#b49162', '#6f7d44'];
     g.fillStyle = cols[(fr() * cols.length) | 0];
-    g.fillRect(px(x + 1), pz(z + 1), 28 * sx, 20 * sx);
-    if (fr() < 0.5) { g.globalAlpha = 0.18; for (let k = 0; k < 6; k++) { g.fillStyle = '#5a6332'; g.fillRect(px(x + 1), pz(z + 2 + k * 3.2), 28 * sx, 0.8 * sx); } g.globalAlpha = 1; }
+    g.fillRect(px(x + 1), pz(z + 1), 28 * sx, 20 * sz);
+    if (fr() < 0.5) { g.globalAlpha = 0.18; for (let k = 0; k < 6; k++) { g.fillStyle = '#5a6332'; g.fillRect(px(x + 1), pz(z + 2 + k * 3.2), 28 * sx, 0.8 * sz); } g.globalAlpha = 1; }
   }
   g.strokeStyle = '#6e7f78'; g.lineWidth = 3 * sx;
-  for (const xx of [-300, -180, 160, 300]) { g.beginPath(); g.moveTo(px(xx), pz(LAND.z0)); g.lineTo(px(xx + 40), pz(10)); g.stroke(); }
-  for (const zz of [-260, -420]) { g.beginPath(); g.moveTo(px(LAND.x0), pz(zz)); g.lineTo(px(LAND.x1), pz(zz + 30)); g.stroke(); }
-  g.fillStyle = '#c9ab7f'; g.beginPath(); g.arc(px(CITY.cx), pz(CITY.cz), CITY.rin * sx, 0, 7); g.fill();
-  // harbour quarter: packed, trodden earth, darker toward the water
-  const hg = g.createLinearGradient(0, pz(20), 0, pz(62)); hg.addColorStop(0, '#bf9d70'); hg.addColorStop(1, '#a5845c');
-  g.fillStyle = hg; g.fillRect(px(-90), pz(20), 180 * sx, 42 * sx);
+  for (const xx of [-330, -200, 260]) { g.beginPath(); g.moveTo(px(xx), pz(LAND.z0)); g.lineTo(px(xx + 30), pz(-80)); g.stroke(); }
+  for (const zz of [-280, -430]) { g.beginPath(); g.moveTo(px(LAND.x0), pz(zz)); g.lineTo(px(LAND.x1), pz(zz + 30)); g.stroke(); }
+  // inside the walls: dusty lanes
+  g.fillStyle = '#c9ab7f'; g.beginPath(); g.ellipse(px(CITY.cx), pz(CITY.cz), CITY.rin * CITY.sx * sx, CITY.rin * CITY.sz * sz, 0, 0, 7); g.fill();
+  // foreshore and quay: packed, trodden earth, darker toward the water
+  g.fillStyle = '#b5946a'; g.beginPath();
+  for (let x = -128; x <= 150; x += 4) { const z = Math.min(footZ(x), bankZ(x)); x === -128 ? g.moveTo(px(x), pz(z)) : g.lineTo(px(x), pz(z)); }
+  for (let x = 150; x >= 0; x -= 4) g.lineTo(px(x), pz(bankZ(x)));
+  for (const [x, z] of [[-6, 90], [-10, 135], [-145, 135], [-145, -20]]) g.lineTo(px(x), pz(z));
+  g.closePath(); g.fill();
   speckle(g, W, H, 9000, ['#b0905f', '#d1b385', '#a3845a'], 1, 6, 0.4);
   const t = toTex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
 })();
@@ -446,12 +471,12 @@ function groundAO(mat, strength = 0.32, h = 1.5) {
 groundAO(M.house); groundAO(M.rampart, 0.3, 3); groundAO(M.terrace, 0.3, 2.5);
 
 // ---------- world: colliders ----------
-// level 0 = ground, 1 = temple terrace top
+// oriented boxes; level 0 = ground, 1 = temple terrace top
 const colliders = [];
-const addCol = (x0, x1, z0, z1, level = 0) => colliders.push({ x0, x1, z0, z1, level });
-const RAMP = { x0: -3, x1: 3, zTop: -63, zBot: -45 };
-const TERRACE = { x0: -22, x1: 22, z0: -97, z1: -63, h: 7 };
-const QUAY = { edge: 61.6, front: 52 };   // water edge and warehouse fronts
+function addCol(x0, x1, z0, z1, level = 0) { colliders.push({ cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, hx: (x1 - x0) / 2, hz: (z1 - z0) / 2, c: 1, s: 0, level }); }
+function addOCol(cx, cz, hx, hz, rot, level = 0) { colliders.push({ cx, cz, hx, hz, c: Math.cos(rot), s: Math.sin(rot), level }); }
+const TERRACE = { x0: -22, x1: 22, z0: -117, z1: -83, h: 7 };
+const RAMP = { x0: -3, x1: 3, zTop: -83, zBot: -65 };
 const walkables = [];
 const clickables = [];
 
@@ -468,12 +493,15 @@ function heightAt(level, z) {
 function collides(x, z, level, r = 0.42) {
   const lv = level === 'top' ? 1 : level === 'ramp' ? 2 : 0;
   if (lv === 2) return false;
-  for (const c of colliders) if (c.level === lv && x > c.x0 - r && x < c.x1 + r && z > c.z0 - r && z < c.z1 + r) return true;
+  for (const k of colliders) if (k.level === lv) {
+    const dx = x - k.cx, dz = z - k.cz;
+    if (Math.abs(dx * k.c - dz * k.s) < k.hx + r && Math.abs(dx * k.s + dz * k.c) < k.hz + r) return true;
+  }
   if (lv === 1) return false;
-  if (z > QUAY.edge - 0.5) return true;
-  const d = Math.hypot(x - CITY.cx, z - CITY.cz);
-  if (d > CITY.rin - 0.8 && d < CITY.rout + 0.8 && !(Math.abs(x) < 2.6 && z > CITY.cz)) return true;
-  if (d >= CITY.rout + 0.8 && (z < 20 || Math.abs(x) > 80)) return true;
+  if (z > bankZ(x) - 0.45 && !onPier(x, z)) return true;
+  const d = cityR(x, z);
+  if (d > CITY.rin - 0.7 && d < CITY.rout + 0.7) { const da = cityA(x, z) - CITY.gate; if (Math.abs(Math.atan2(Math.sin(da), Math.cos(da))) > 0.022) return true; }
+  if (d >= CITY.rout + 0.7 && (z < -60 || z > 130 || x < -128 || x > 155)) return true;
   return false;
 }
 // returns new level or null if blocked
@@ -485,19 +513,69 @@ function stepLevel(cur, nx, nz) {
   return collides(nx, nz, lv) ? null : lv;
 }
 
+// ---------- geometry helpers for weathered mudbrick ----------
+const ni = g => g.index ? g.toNonIndexed() : g;
+// a block with rounded, worn edges and walls that lean in slightly, like real mudbrick
+function rbox(w, h, d, r = 0.3, batter = 0.035) {
+  const g = new RoundedBoxGeometry(w, h, d, 2, r); g.translate(0, h / 2, 0);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const k = 1 - batter * p.getY(i) / h; p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); }
+  return g;
+}
+const loc = (g, x, z, rot = 0, y = 0) => { g.rotateY(rot); g.translate(x, y, z); return g; };
+// texture coordinates from world position, so plaster and bricks keep the same scale on every wall
+function worldUV(g, ts = 4) {
+  const p = g.attributes.position, n = g.attributes.normal, uv = g.attributes.uv;
+  for (let i = 0; i < p.count; i++) {
+    const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i)); let u, v;
+    if (ay > ax && ay > az) { u = p.getX(i); v = p.getZ(i); } else if (ax > az) { u = p.getZ(i); v = p.getY(i); } else { u = p.getX(i); v = p.getY(i); }
+    uv.setXY(i, u / ts, v / ts);
+  }
+  return g;
+}
+
 // ---------- world building ----------
 const world = new THREE.Group(); scene.add(world);
 const anim = [];   // per-frame callbacks for little bits of life
 
+function shapeGeo(pts) {
+  const sh = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z)));
+  const g = new THREE.ShapeGeometry(sh); g.rotateX(-Math.PI / 2);
+  const p = g.attributes.position, uv = g.attributes.uv;
+  for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) - LAND.x0) / (LAND.x1 - LAND.x0), 1 - (p.getZ(i) - LAND.z0) / (LAND.z1 - LAND.z0));
+  return g;
+}
+// walls and logs along a bank line; waterRight: water lies to the right of the direction of travel
+function bankEdge(pts, waterRight, quay) {
+  const wood = [], earth = [], logs = [], posts = [];
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, z0] = pts[i - 1], [x1, z1] = pts[i];
+    if (Math.max(Math.abs(x0), Math.abs(x1)) > 900) continue;
+    const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), rot = Math.atan2(-dz, dx);
+    const nx = (waterRight ? -dz : dz) / L, nz = (waterRight ? dx : -dx) / L;
+    const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, isQuay = quay && mx > -8 && mx < 152 && mz < 82;
+    const wall = box(L + 0.6, 3, 1.0, 0, -1.5, 0, 2); loc(wall, mx + nx * 0.4, mz + nz * 0.4, rot);
+    (isQuay ? wood : earth).push(wall);
+    if (isQuay) {
+      const lg = new THREE.CylinderGeometry(0.17, 0.17, L + 0.3, 8); lg.rotateZ(Math.PI / 2); loc(lg, mx - nx * 0.1, mz - nz * 0.1, rot, 0.1); logs.push(lg);
+      for (let t = 0; t < L; t += 4.2) { const p = new THREE.CylinderGeometry(0.13, 0.15, 2.6, 7); p.translate(x0 + dx * t / L + nx * 0.75, -1.0, z0 + dz * t / L + nz * 0.75); posts.push(p); }
+    }
+  }
+  if (wood.length) world.add(mesh(mergeGeometries(wood.concat(logs, posts)), M.wood, false, true));
+  if (earth.length) world.add(mesh(mergeGeometries(earth), std({ color: '#a88660', map: plasterTex }), false, true));
+}
+
 async function buildLand() {
-  const w = LAND.x1 - LAND.x0, h = LAND.z1 - LAND.z0;
-  const g = new THREE.PlaneGeometry(w, h); g.rotateX(-Math.PI / 2); g.translate((LAND.x0 + LAND.x1) / 2, 0, (LAND.z0 + LAND.z1) / 2);
-  const det = groundDetail.clone(); det.needsUpdate = true; det.repeat.set(w / 3, h / 3);
-  const ground = mesh(g, std({ map: landTex, bumpMap: det, bumpScale: 0.8 }), false, true);
+  const det = groundDetail.clone(); det.needsUpdate = true; det.repeat.set((LAND.x1 - LAND.x0) / 3, (LAND.z1 - LAND.z0) / 3);
+  const near = [[-1400, -1400], ...[...BANK].reverse(), [-1400, 1400]];
+  const ground = mesh(shapeGeo(near), std({ map: landTex, bumpMap: det, bumpScale: 0.8 }), false, true);
   ground.name = 'ground'; world.add(ground); walkables.push(ground);
+  const farTex = landTex.clone(); farTex.needsUpdate = true;
+  world.add(mesh(shapeGeo([...FAR, [1400, -1400], [1400, 1400]]), std({ map: farTex }), false, true));
+  bankEdge(BANK, true, true); bankEdge(FAR, false, false);
 
   // the river: reflective water on desktop, a cheaper surface on phones
-  const wg = new THREE.PlaneGeometry(1400, 190);
+  const wg = new THREE.PlaneGeometry(4000, 4000);
   let water;
   if (!mobile && !params.has('flatwater')) {
     try {
@@ -509,113 +587,116 @@ async function buildLand() {
     } catch (e) { console.warn('water normals', e); }
   }
   if (!water) water = mesh(wg, std({ color: '#6b6347', roughness: 0.14, metalness: 0.1 }), false, false);
-  water.rotation.x = -Math.PI / 2; water.position.set(0, -0.9, 62 + 95);
+  water.rotation.x = -Math.PI / 2; water.position.set(0, -0.9, 0);
   world.add(water); world.userData.water = water;
-  world.add(mesh(new THREE.PlaneGeometry(1400, 190).rotateX(-Math.PI / 2).translate(0, -3, 157), std({ color: '#3c3426' }), false, false));
+  world.add(mesh(new THREE.PlaneGeometry(4000, 4000).rotateX(-Math.PI / 2).translate(0, -3, 0), std({ color: '#3c3426' }), false, false));
 
-  // quay edge: earthen bank faced with timber, a log curb and mooring posts
-  world.add(mesh(box(170, 3, 1.0, 0, -1.5, QUAY.edge + 0.4, 2), M.wood, false, true));
-  world.add(mesh(box(1200, 3, 1.2, 0, -1.55, 62.05, 4), std({ color: '#a88660', map: plasterTex }), false, true));
-  const curb = new THREE.CylinderGeometry(0.17, 0.17, 170, 8); curb.rotateZ(Math.PI / 2); curb.translate(0, 0.1, QUAY.edge + 0.1);
-  world.add(mesh(curb, M.wood));
-  const posts = [];
-  for (let x = -84; x <= 84; x += 4.2) { const p = new THREE.CylinderGeometry(0.13, 0.15, 2.6, 7); p.translate(x, -1.0, QUAY.edge + 0.75); posts.push(p); }
-  world.add(mesh(mergeGeometries(posts), M.wood));
-
-  const far = new THREE.PlaneGeometry(1400, 500); far.rotateX(-Math.PI / 2); far.translate(0, 0.2, 252 + 250);
-  const farTex = landTex.clone(); farTex.needsUpdate = true;
-  world.add(mesh(far, std({ map: farTex }), false, true));
-  world.add(mesh(box(1400, 3.4, 2, 0, -1.4, 252, 4), std({ color: '#a88660', map: plasterTex }), false, false));
+  // the stone pier, as in the film's aerial view
+  const pg = [box(PIER.x1 - PIER.x0, 3.05, PIER.z1 - PIER.z0, (PIER.x0 + PIER.x1) / 2, -1.475, (PIER.z0 + PIER.z1) / 2, 2)];
+  for (let z = PIER.z0 + 1; z < PIER.z1; z += 1.6) pg.push(box(PIER.x1 - PIER.x0 + 0.08, 0.04, 0.06, (PIER.x0 + PIER.x1) / 2, 0.06, z, 1));
+  const pier = mesh(mergeGeometries(pg), std({ map: brickTex, color: '#e8d6bc' }), true, true);
+  world.add(pier); walkables.push(pier);
 }
 
 function buildRampart() {
-  const { rin, rout } = CITY, gap = 0.035;
+  const { rin, rout, gap, gate } = CITY;
   const prof = [[rin, 0], [rin + 2.5, 6.6], [rin + 6, 7.6], [rout - 6, 7.6], [rout - 2, 6.2], [rout, 0]].map(p => new THREE.Vector2(p[0], p[1]));
-  const g = new THREE.LatheGeometry(prof, 160, gap, Math.PI * 2 - gap * 2);
-  const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 160, uv.getY(i) * 6);
-  g.translate(CITY.cx, 0, CITY.cz);
+  const g = new THREE.LatheGeometry(prof, 200, gate + gap, Math.PI * 2 - gap * 2);
+  const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 190, uv.getY(i) * 6);
+  g.scale(CITY.sx, 1, CITY.sz); g.translate(CITY.cx, 0, CITY.cz); g.computeVertexNormals();
   M.rampart.side = THREE.DoubleSide; world.add(mesh(g, M.rampart));
+  const tw = [];
   for (const s of [-1, 1]) {
-    const a = s * (gap + 0.026), r = (rin + rout) / 2;
-    const t = mesh(box(5.2, 9.5, rout - rin + 3, 0, 4.75, 0, 3), M.terrace);
-    t.position.set(CITY.cx + Math.sin(a) * r, 0, CITY.cz + Math.cos(a) * r); t.rotation.y = a; world.add(t);
+    const a = gate + s * (gap + 0.022), p = cityPt((rin + rout) / 2, a), n = cityNormal(a);
+    tw.push(worldUV(loc(rbox(5.2, 9.5, 24, 0.4, 0.06), p.x, p.z, Math.atan2(n.x, n.z))));
   }
-  world.add(mesh(box(6, 1.6, 4, 0, 8.2, CITY.cz + rout - 3, 2), M.wood));
+  world.add(mesh(mergeGeometries(tw), M.terrace));
+  const gp = cityPt(rout - 4, gate), gn = cityNormal(gate);
+  world.add(mesh(loc(box(7.5, 1.4, 3, 0, 8.4, 0, 2), gp.x, gp.z, Math.atan2(gn.x, gn.z)), M.wood));
 }
 
 const HOUSE_TINTS = ['#ffffff', '#f4ebe0', '#efe2cf', '#fbf3e6', '#e8dac4'];
+// the route from the city gate to the temple ramp: kept free of houses
+const GATE_IN = cityPt(CITY.rin - 3, CITY.gate);
+const STREET = [[GATE_IN.x, GATE_IN.z], [-30, 2], [-6, 3], [4, 4], [4, -8], [5, -18], [4.5, -27], [1, -45], [0, RAMP.zBot + 1]];
+function distToStreet(x, z) {
+  let best = 1e9;
+  for (let i = 1; i < STREET.length; i++) {
+    const [ax, az] = STREET[i - 1], [bx, bz] = STREET[i], vx = bx - ax, vz = bz - az, t = clamp(((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz), 0, 1);
+    best = Math.min(best, Math.hypot(x - ax - vx * t, z - az - vz * t));
+  }
+  return best;
+}
 function buildHouses() {
   const houseGeos = [], doorGeos = [], beamGeos = [], matGeos = [], woodGeos = [];
   const blocked = (x, z, r) => {
-    if (Math.abs(x) < 7.5 + r && z > -46) return true;
-    if (x > -30 - r && x < 30 + r && z > -106 - r && z < -38 + r) return true;
+    if (distToStreet(x, z) < 5.5 + r) return true;
+    if (x > -32 - r && x < 32 + r && z > -130 - r && z < -58 + r) return true;
     if (x > 5 - r && x < 28 + r && z > -30 - r && z < -10 + r) return true;
     if (x > 6 - r && x < 25 + r && z > -5 - r && z < 13.5 + r) return true;
-    return Math.hypot(x - CITY.cx, z - CITY.cz) > CITY.rin - 5 - r;
+    return cityR(x, z) > CITY.rin - 6 - r / CITY.sz;
   };
-  for (let gz = -168; gz < 20; gz += 11.5) for (let gx = -92; gx < 92; gx += 11.5) {
+  for (let gz = -178; gz < 45; gz += 11.5) for (let gx = -150; gx < 150; gx += 11.5) {
     if (R() < 0.05) continue;
     const w = rr(7.5, 10.2), d = rr(7.5, 10.2), cx = gx + rr(-1.4, 1.4), cz = gz + rr(-1.4, 1.4), r = Math.max(w, d) / 2;
     if (blocked(cx, cz, r)) continue;
     const h = R() < 0.28 ? rr(5.8, 6.6) : rr(3.2, 3.8);
     const col = pick(HOUSE_TINTS);
+    const add = (bw, bh, bd, x, z, y = 0) => houseGeos.push(tint(worldUV(loc(rbox(bw, bh, bd, 0.22, 0.03), x, z, 0, y)), col));
     if (w > 8.6 && d > 8.6 && R() < 0.8) {
-      const t = 3.1;
-      houseGeos.push(tint(box(w, h, t, cx, h / 2, cz - d / 2 + t / 2), col), tint(box(w, h, t, cx, h / 2, cz + d / 2 - t / 2), col),
-        tint(box(t, h, d - 2 * t, cx - w / 2 + t / 2, h / 2, cz), col), tint(box(t, h * (R() < .5 ? 1 : 0.62), d - 2 * t, cx + w / 2 - t / 2, h * (R() < .5 ? .5 : .31), cz), col));
-      if (R() < 0.4) { // reed shade over part of the courtyard
+      const t = 3.1, hE = R() < .5 ? h : h * 0.62;
+      add(w, h, t, cx, cz - d / 2 + t / 2); add(w, h, t, cx, cz + d / 2 - t / 2);
+      add(t, h, d - 2 * t + 0.3, cx - w / 2 + t / 2, cz); add(t, hE, d - 2 * t + 0.3, cx + w / 2 - t / 2, cz);
+      if (R() < 0.4) {
         matGeos.push(box(2.4, 0.05, 2.2, cx + rr(-0.6, 0.6), 2.3, cz + rr(-0.6, 0.6), 1));
         for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) woodGeos.push(new THREE.CylinderGeometry(0.05, 0.05, 2.3, 5).translate(cx + ox * 1.1, 1.15, cz + oz * 1.0));
       }
-    } else houseGeos.push(tint(box(w, h, d, cx, h / 2, cz), col));
-    if (R() < 0.35) houseGeos.push(tint(box(w, 0.35, 0.25, cx, h + 0.17, cz + d / 2 - 0.12), col), tint(box(w, 0.35, 0.25, cx, h + 0.17, cz - d / 2 + 0.12), col));
+    } else add(w, h, d, cx, cz);
+    if (R() < 0.35) { add(w * 0.96, 0.4, 0.3, cx, cz + d / 2 - 0.2, h - 0.05); add(w * 0.96, 0.4, 0.3, cx, cz - d / 2 + 0.2, h - 0.05); }
     addCol(cx - w / 2, cx + w / 2, cz - d / 2, cz + d / 2);
-    const side = Math.abs(cx) < 30 ? (cx > 0 ? 3 : 2) : (R() < .5 ? 0 : (cx > 0 ? 3 : 2));
-    const off = rr(-1.5, 1.5);
-    if (side === 0) { doorGeos.push(box(1.05, 1.95, 0.16, cx + off, 0.975, cz + d / 2 + 0.03, 1)); woodGeos.push(box(1.5, 0.18, 0.3, cx + off, 2.05, cz + d / 2 + 0.1, 1)); }
-    if (side === 2) { doorGeos.push(box(0.16, 1.95, 1.05, cx + w / 2 + 0.03, 0.975, cz + off, 1)); woodGeos.push(box(0.3, 0.18, 1.5, cx + w / 2 + 0.1, 2.05, cz + off, 1)); }
-    if (side === 3) { doorGeos.push(box(0.16, 1.95, 1.05, cx - w / 2 - 0.03, 0.975, cz + off, 1)); woodGeos.push(box(0.3, 0.18, 1.5, cx - w / 2 - 0.1, 2.05, cz + off, 1)); }
+    // door on the side facing the street
+    const sx = Math.sign(-cx) || 1, sz = Math.sign(-cz) || 1, off = rr(-1.5, 1.5);
+    if (Math.abs(cx) > Math.abs(cz)) { const fx = cx + sx * (w / 2 + 0.03); doorGeos.push(box(0.16, 1.95, 1.05, fx, 0.975, cz + off, 1)); woodGeos.push(box(0.3, 0.18, 1.5, fx + sx * 0.07, 2.05, cz + off, 1)); }
+    else { const fz = cz + sz * (d / 2 + 0.03); doorGeos.push(box(1.05, 1.95, 0.16, cx + off, 0.975, fz, 1)); woodGeos.push(box(1.5, 0.18, 0.3, cx + off, 2.05, fz + sz * 0.07, 1)); }
     const n = Math.floor(w / 0.9);
-    if (R() < 0.7) for (let i = 1; i < n; i++) {
-      const b = new THREE.CylinderGeometry(0.07, 0.07, 0.55, 6); b.rotateX(Math.PI / 2); b.translate(cx - w / 2 + i * w / n, h - 0.28, cz + d / 2 + 0.15); beamGeos.push(b);
-    }
+    if (R() < 0.7) for (let i = 1; i < n; i++) { const b = new THREE.CylinderGeometry(0.07, 0.07, 0.55, 6); b.rotateX(Math.PI / 2); b.translate(cx - w / 2 + i * w / n, h - 0.3, cz + d / 2 + 0.1); beamGeos.push(b); }
     if (R() < 0.35) { const mw = rr(1.5, 3); matGeos.push(box(mw, 0.06, mw * 0.7, cx + rr(-w / 4, w / 4), h + 0.03, cz + rr(-d / 4, d / 4), 1)); }
   }
   world.add(mesh(mergeGeometries(houseGeos), M.house));
   world.add(mesh(mergeGeometries(doorGeos), M.door, false, true));
-  world.add(mesh(mergeGeometries(beamGeos.concat(woodGeos.map(g => g.index ? g : g))), M.wood));
+  world.add(mesh(mergeGeometries(beamGeos.concat(woodGeos)), M.wood));
   if (matGeos.length) world.add(mesh(mergeGeometries(matGeos), M.mat));
 }
 
-// the harbour quarter: a row of warehouses facing the quay, as in the film's last shot
-function buildWarehouses() {
-  const geos = [], doors = [], wood = [], beams = [];
-  const doorSpots = [];
-  for (const [xa, xb] of [[-80, -6.5], [10.5, 80]]) {
-    let x = xa;
-    while (x < xb - 5) {
-      const w = Math.min(rr(9, 15), xb - x), d = rr(7, 9.5), h = rr(4.2, 6.2), cx = x + w / 2, cz = QUAY.front - d / 2;
-      const col = pick(HOUSE_TINTS);
-      geos.push(tint(box(w, h, d, cx, h / 2, cz), col));
-      if (R() < 0.45) { const uw = w * rr(0.4, 0.6), uh = rr(2.4, 3); geos.push(tint(box(uw, uh, d * 0.55, cx + rr(-w / 5, w / 5), h + uh / 2, cz - d * 0.2), col)); }
-      addCol(x, x + w, QUAY.front - d, QUAY.front);
-      const nd = Math.max(1, Math.round(w / 6.5));
-      for (let k = 0; k < nd; k++) {
-        const dx = x + (k + 0.5) * w / nd;
-        doors.push(box(1.3, 2.25, 0.2, dx, 1.12, QUAY.front + 0.04, 1));
-        wood.push(box(1.9, 0.22, 0.4, dx, 2.36, QUAY.front + 0.14, 1));
-        for (const s of [-1, 1]) wood.push(box(0.16, 2.25, 0.16, dx + s * 0.72, 1.12, QUAY.front + 0.1, 1));
-        doorSpots.push(dx);
-      }
-      for (let bx = x + 0.6; bx < x + w - 0.3; bx += 0.85) { const b = new THREE.CylinderGeometry(0.075, 0.075, 0.6, 6); b.rotateX(Math.PI / 2); b.translate(bx, h - 0.32, QUAY.front + 0.2); beams.push(b); }
-      if (R() < 0.5) for (let k = 0; k < 2; k++) doors.push(box(0.45, 0.3, 0.12, cx + rr(-w / 3, w / 3), h - 1.0, QUAY.front + 0.02, 1));
-      x += w + (R() < 0.4 ? rr(2.5, 3.5) : 0.03);
+// storehouses built against the foot of the rampart along the river quay: the setting of the film's last shot
+function buildStrip() {
+  const geos = [], doors = [], wood = [];
+  const arcLen = a => cityPt(CITY.rout, a).distanceTo(cityPt(CITY.rout, a + 0.001)) / 0.001;
+  let a = 0.14;
+  while (a < 1.1) {
+    const w = rr(8, 14), d = STRIP.depth - rr(0, 1.0), h = rr(5.2, 7.4), arc = arcLen(a);
+    const am = a + (w / 2) / arc, N = cityNormal(am), rot = Math.atan2(N.x, N.z);
+    const c = cityPt(CITY.rout - 0.5, am).addScaledVector(N, d / 2);
+    const col = pick(HOUSE_TINTS);
+    geos.push(tint(worldUV(loc(rbox(w, h, d, 0.35, 0.045), c.x, c.z, rot)), col));
+    if (R() < 0.5) { const uw = w * rr(0.4, 0.6), uh = rr(2.2, 3); const g = rbox(uw, uh, d * 0.55, 0.3, 0.05); g.translate(rr(-w / 5, w / 5), h - 0.1, -d * 0.18); geos.push(tint(worldUV(loc(g, c.x, c.z, rot)), col)); }
+    // worn parapet along the roof edge on some
+    if (R() < 0.5) { const g = rbox(w * 0.95, 0.45, 0.35, 0.15, 0); g.translate(0, h - 0.1, d / 2 - 0.25); geos.push(tint(worldUV(loc(g, c.x, c.z, rot)), col)); }
+    addOCol(c.x, c.z, w / 2, d / 2, rot);
+    const nd = Math.max(1, Math.round(w / 6.5));
+    for (let k = 0; k < nd; k++) {
+      const off = (k + 0.5) * w / nd - w / 2 + rr(-0.6, 0.6);
+      doors.push(loc(box(1.3, 2.3, 0.2, off, 1.15, d / 2 + 0.02, 1), c.x, c.z, rot));
+      wood.push(loc(box(1.9, 0.22, 0.4, off, 2.42, d / 2 + 0.12, 1), c.x, c.z, rot));
+      for (const s of [-1, 1]) wood.push(loc(box(0.16, 2.3, 0.16, off + s * 0.72, 1.15, d / 2 + 0.08, 1), c.x, c.z, rot));
     }
+    for (let bx = -w / 2 + 0.6; bx < w / 2 - 0.3; bx += 0.85) { const b = new THREE.CylinderGeometry(0.075, 0.075, 0.6, 6); b.rotateX(Math.PI / 2); b.translate(bx, h - 0.35, d / 2 + 0.15); wood.push(loc(b, c.x, c.z, rot)); }
+    if (R() < 0.5) for (let k = 0; k < 2; k++) doors.push(loc(box(0.45, 0.3, 0.12, rr(-w / 3, w / 3), h - 1.0, d / 2 + 0.01, 1), c.x, c.z, rot));
+    a = am + (w / 2 + (R() < 0.35 ? rr(1.5, 3) : 0.05)) / arc;
   }
   world.add(mesh(mergeGeometries(geos), M.house));
   world.add(mesh(mergeGeometries(doors), M.door, false, true));
-  world.add(mesh(mergeGeometries(wood.concat(beams.map(b => b.toNonIndexed ? b : b))), M.wood));
-  return doorSpots;
+  world.add(mesh(mergeGeometries(wood), M.wood));
 }
 
 // the courtyard house you can walk into
@@ -693,7 +774,7 @@ function buildTemple() {
   const uv = rg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 2, uv.getY(i) / 2);
   const ramp = mesh(rg, M.brick); world.add(ramp); walkables.push(ramp);
   addCol(RAMP.x0 - 0.4, RAMP.x0, RAMP.zTop, RAMP.zBot - 1.6); addCol(RAMP.x1, RAMP.x1 + 0.4, RAMP.zTop, RAMP.zBot - 1.6);
-  const tg = [], x0 = -11, x1 = 11, z0 = -90, z1 = -76, h = 8, y = T.h;
+  const tg = [], x0 = -11, x1 = 11, z0 = T.z0 + 7, z1 = T.z1 - 13, h = 8, y = T.h;
   tg.push(box(x1 - x0, h, z1 - z0, 0, y + h / 2, (z0 + z1) / 2, 4));
   for (let x = x0 + 1; x <= x1 - 1; x += 2) if (Math.abs(x) > 1.8) tg.push(box(0.9, h, 0.45, x, y + h / 2, z1 + 0.22, 4));
   for (let x = x0 + 1; x <= x1 - 1; x += 2) tg.push(box(0.9, h, 0.45, x, y + h / 2, z0 - 0.22, 4));
@@ -885,7 +966,7 @@ function reedBoat(L = 7, canopy = false) {
   }
   g.add(mesh(mergeGeometries(geos), M.bitumen));
   g.add(mesh(box(L * 0.55, 0.06, 0.9, 0, 0.12, 0, 1), M.wood));
-  if (canopy) { const c = new THREE.CylinderGeometry(0.6, 0.6, 1.8, 12, 1, true, -Math.PI / 2, Math.PI); c.rotateZ(Math.PI / 2); c.translate(-L * 0.12, 0.2, 0); g.add(mesh(c, std({ map: matTex, side: THREE.DoubleSide }))); }
+  if (canopy) { const c = new THREE.CylinderGeometry(0.6, 0.6, 1.8, 12, 1, true, 0, Math.PI); c.rotateZ(Math.PI / 2); c.translate(-L * 0.12, 0.2, 0); g.add(mesh(c, std({ map: matTex, side: THREE.DoubleSide }))); }
   for (let i = 0; i < 2; i++) { const b = bale(0.6, 0.4, 0.5); b.position.set(L * (0.12 + i * 0.1), 0.15, rr(-0.15, 0.15)); g.add(b); }
   return g;
 }
@@ -962,7 +1043,7 @@ function hotspot(id, pos, opts = {}) {
 
 // Content: kept short and tied to real finds. tag: ev = direct evidence, later = evidence from a later period, rec = reconstruction
 const INFO = {
-  ship: { title: 'A ship from Meluhha', tag: 'rec', where: 'Quay',
+  ship: { title: 'A ship from Meluhha', tag: 'rec', where: 'Stone pier',
     body: ['Sea-going boats in the Gulf were built from bundles of reeds lashed together and coated with bitumen. At Ra’s al-Jinz in Oman, archaeologists found hundreds of bitumen slabs from such boats, still marked with the imprints of reeds and ropes, and with barnacles on the outside.',
       'Around 2300 BCE, Sargon of Akkad boasted that ships from Meluhha, Magan and Dilmun moored at the quay of his capital, Agade.'],
     evidence: '<b>Known:</b> reed-and-bitumen hulls, Sargon’s inscription, Indus seals showing boats with high ends and a cabin. <b>Not known:</b> the exact rig and size of an Indus ship; the mast and sail here are a careful guess.',
@@ -973,43 +1054,43 @@ const INFO = {
       'Their clothes follow Indus art: the “priest-king” statue from Mohenjo-daro wears a headband and a cloak over one shoulder, decorated with trefoils that were once filled with red paste. The Indus valley is one of the first places where cotton was grown and woven.'],
     evidence: '<b>Known:</b> the name Meluhha, the interpreter’s seal, the priest-king statue. <b>Reconstruction:</b> faces, colours and the exact cut of their clothes.',
     src: 'Seal of Shu-ilishu, Louvre AO 22310; “priest-king”, National Museum of Pakistan, Karachi.' },
-  kar: { title: 'The quay: where business was done', tag: 'ev', where: 'Quay',
+  kar: { title: 'The quay: where business was done', tag: 'ev', where: 'Storehouse quay',
     body: ['In a Sumerian city, trade with outsiders happened at the kar, the quay district by the water, lined with storehouses. Merchants (Sumerian damgar) worked here for the temple and the palace, and for themselves.',
       'Mesopotamia had no stone, no metal and little good timber, so almost everything hard and precious had to come in by boat.'],
     evidence: '<b>Known:</b> the kar as the trading district appears in many cuneiform texts. <b>Reconstruction:</b> what Ur’s quay looked like in 2300 BCE; the warehouses here follow the film and later Mesopotamian buildings.',
     src: 'Cuneiform economic texts; A. L. Oppenheim, “The Seafaring Merchants of Ur” (1954).' },
-  weights: { title: 'Cube-shaped stone weights', tag: 'ev', where: 'Trading mat',
+  weights: { title: 'Cube-shaped stone weights', tag: 'ev', where: 'Foreshore',
     body: ['Indus traders weighed goods with small polished cubes of stone, usually chert. They form a standard series: the weights double (1, 2, 4, 8, 16, 32, 64) and then rise in decimal steps. The most common one, the “16”, weighs about 13.7 grams.',
       'Dilmun, the trading hub on Bahrain, used the same Indus standard, which shows how far the Indus system reached.'],
     evidence: '<b>Known:</b> hundreds of these weights from Indus cities, and Indus-standard weights in the Gulf. They are tiny: the ones on the mat are shown at real size.',
     src: 'Kenoyer, “Ancient Cities of the Indus Valley Civilization” (1998); Højlund, Qala’at al-Bahrain excavations.' },
-  beads: { title: 'Etched carnelian beads', tag: 'ev', where: 'Trading mat',
+  beads: { title: 'Etched carnelian beads', tag: 'ev', where: 'Foreshore',
     body: ['Indus craftsmen bleached white patterns into red carnelian with an alkaline paste and heat. They also drilled very long carnelian beads, a job that could take days for a single bead.',
       'Beads like these were found in the Royal Cemetery of Ur (about 2600–2450 BCE), including in the tomb of Queen Puabi. They are some of the clearest physical proof of contact between Ur and the Indus.'],
     evidence: '<b>Known:</b> etched and long carnelian beads from Ur’s Royal Cemetery, now in the Penn Museum and the British Museum.',
     src: 'Woolley, “Ur Excavations II: The Royal Cemetery” (1934); Penn Museum, Puabi collection.' },
-  seal: { title: 'An Indus seal and its sealing', tag: 'ev', where: 'Scribe',
+  seal: { title: 'An Indus seal and its sealing', tag: 'ev', where: 'Storehouse quay',
     body: ['Indus seals are small squares of fired steatite, about 2 to 3 cm across, carved with an animal, most often a one-horned bull, and a line of signs in the Indus script, which nobody can read today.',
       'Pressed into a lump of clay over the cord of a bale, the seal showed who sent the goods and that the bale had not been opened on the way.',
       'Several seals in Indus style were found at Ur itself.'],
     evidence: '<b>Known:</b> Indus-style seals excavated at Ur and other Mesopotamian cities.',
     src: 'C. J. Gadd, “Seals of Ancient Indian Style Found at Ur” (1932).' },
-  scribe: { title: 'A scribe and his clay tablet', tag: 'ev', where: 'Scribe',
+  scribe: { title: 'A scribe and his clay tablet', tag: 'ev', where: 'Storehouse quay',
     body: ['Scribes wrote by pressing a cut reed into damp clay, leaving wedge-shaped marks: cuneiform. Under the Akkadian kings, records were kept in Sumerian and in Akkadian.',
       'At Ur, archaeologists found many merchants’ tablets. The most famous is about 550 years later: a customer called Nanni complains to the merchant Ea-nasir that the copper he delivered was poor and he was treated rudely.'],
     evidence: '<b>Known:</b> thousands of tablets from Ur. <b>Later evidence:</b> the Ea-nasir letter dates to about 1750 BCE.',
     src: 'Letter of Nanni to Ea-nasir, British Museum 131236.' },
-  goods: { title: 'What Ur paid with', tag: 'ev', where: 'Quay',
+  goods: { title: 'What Ur paid with', tag: 'ev', where: 'Storehouse quay',
     body: ['Ur paid for imports with what southern Mesopotamia had plenty of: woollen textiles, barley, sesame oil, dates and silver gained through trade.',
       'In return came copper from Magan (Oman), carnelian, ivory and fine wood from Meluhha, and lapis lazuli from Afghanistan, which often travelled through Indus hands.'],
     evidence: '<b>Known:</b> lists of goods in cuneiform texts, and the imported materials themselves found in Ur’s graves and houses.',
     src: 'Oppenheim (1954); Potts, “The Arabian Gulf in Antiquity” (1990).' },
-  donkey: { title: 'Donkeys, not camels', tag: 'ev', where: 'City gate',
+  donkey: { title: 'Donkeys, not camels', tag: 'ev', where: 'Storehouse quay',
     body: ['Goods moved overland on donkeys. Camels were not used here for more than another thousand years, and horses were still rare.',
       'Heavy loads also went by wagon with solid wooden wheels, pulled by donkeys or donkey hybrids, as shown on the Standard of Ur.'],
     evidence: '<b>Known:</b> the Standard of Ur (about 2500 BCE, British Museum) and animal bones from Mesopotamian sites.',
     src: 'Standard of Ur, British Museum 121201.' },
-  palm: { title: 'Date palms', tag: 'ev', where: 'City gate',
+  palm: { title: 'Date palms', tag: 'ev', where: 'Foreshore',
     body: ['Dates were a staple food of southern Mesopotamia, eaten fresh or dried and made into syrup. The palm also gave trunks for roof beams, fronds for mats and baskets, and fibre for rope.',
       'Gardens of date palms lined the rivers and canals, with vegetables grown in their shade.'],
     evidence: '<b>Known:</b> dates and palm products appear constantly in cuneiform records and in excavated plant remains.',
@@ -1045,71 +1126,103 @@ const INFO = {
 // ---------- build everything ----------
 let leader, follower, courtFloor;
 const sumerian = (extra = {}) => Object.assign({ skin: pick(SKIN.sum), hair: 'bald', lower: 'kilt', lowerMat: pick([M.wool, M.woolPale, M.wool]), h: rr(0.92, 0.98) }, extra);
+const V = (x, z) => new THREE.Vector3(x, 0, z);
+const along = a => { const T = cityTangent(a); return Math.atan2(T.x, T.z); };          // heading along the quay, toward the north-east
+const yawBack = a => { const T = cityTangent(a); return Math.atan2(-T.x, -T.z); };      // camera placed back along the quay
+function walker(p, pts, spd) { p.userData.route = pts.map(q => q.isVector3 ? q.clone() : V(q[0], q[1])); p.userData.i = 1; p.userData.dir = 1; p.userData.spd = spd; p.userData.wait = rr(0, 3); p.position.copy(p.userData.route[0]); walkers.push(p); return p; }
 
 async function build() {
   loadText('Loading people and water…'); await frame();
   await loadBodies();
   loadText('Laying out the plain and the river…'); await frame();
   await buildLand(); buildRampart();
-  loadText('Building houses and warehouses…'); await frame();
-  buildHouses(); courtFloor = buildCourtyardHouse();
-  const doorSpots = buildWarehouses();
+  loadText('Building houses and storehouses…'); await frame();
+  buildHouses(); courtFloor = buildCourtyardHouse(); buildStrip();
   loadText('Raising the temple terrace…'); await frame();
   buildTemple();
 
   loadText('Planting date palms and reeds…'); await frame();
-  const palms = [];
-  const pr = rng(31);
-  for (let i = 0; i < 40; i++) { const x = (pr() < .5 ? -1 : 1) * (14 + pr() * 66), z = 22 + pr() * 18; if (Math.hypot(x, z - CITY.cz) > CITY.rout + 3) palms.push([x, z]); }
-  palms.push([-4.2, 43.5, 1.05], [8.6, 44.2, 0.95], [22, -18, 0.9], [-92, 58, 1.1], [-98, 54], [92, 57], [99, 52, 1.1]);
-  for (let i = 0; i < 70; i++) palms.push([-500 + pr() * 1000, 262 + pr() * 40]);
-  for (let i = 0; i < 160; i++) { const a = pr() * 6.28, d = CITY.rout + 18 + pr() * 120, x = CITY.cx + Math.sin(a) * d, z = CITY.cz + Math.cos(a) * d; if (z < 12) palms.push([x, z]); }
+  // palm groves west and north-east of the city, as in the film's aerial view
+  const palms = [], pr = rng(31);
+  const landOK = (x, z, m = 5) => cityR(x, z) > CITY.rout + m && z < bankZ(x) - 4;
+  for (let i = 0; i < 170; i++) { const x = -215 + pr() * 105, z = -95 + pr() * 152; if (landOK(x, z)) palms.push([x, z]); }
+  for (let i = 0; i < 130; i++) { const x = 30 + pr() * 150, z = -235 + pr() * 95; if (landOK(x, z)) palms.push([x, z]); }
+  for (let i = 0; i < 90; i++) { const x = -560 + pr() * 1100, z = -560 + pr() * 600; if (landOK(x, z, 40) && (x < -220 || x > 190 || z < -250)) palms.push([x, z]); }
+  for (let i = 1; i < FAR.length; i++) { const [x0, z0] = FAR[i - 1], [x1, z1] = FAR[i]; for (let t = 0; t < 1; t += 0.05) { const x = x0 + (x1 - x0) * t + 8 + pr() * 40, z = z0 + (z1 - z0) * t + 8 + pr() * 40; if (Math.abs(z) < 700 && z > lineZ(FAR, x) + 4) palms.push([x, z]); } }
+  for (let i = 0; i < 60; i++) { const x = -150 + pr() * 120, z = 140 + pr() * 200; if (z < bankZ(x) - 6) palms.push([x, z]); }
+  palms.push([-104, 44, 1.1], [-110, 30], [-114, 52, 0.95], [-98, 57, 0.9], [22, -18, 0.9]);
   buildPalms(palms);
   const reeds = [];
-  for (let i = 0; i < 260; i++) { const x = (pr() < .5 ? -1 : 1) * (86 + pr() * 300); reeds.push([x, 61.5 + pr() * 3, -0.6]); }
-  for (let i = 0; i < 420; i++) reeds.push([-600 + pr() * 1200, 249 + pr() * 4, -0.5]);
+  for (let i = 1; i < BANK.length; i++) {
+    const [x0, z0] = BANK[i - 1], [x1, z1] = BANK[i];
+    for (let t = 0; t < 1; t += 0.02) { const x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t; if ((z > 95 || x > 158) && Math.abs(x) < 520 && Math.abs(z) < 520 && pr() < 0.8) reeds.push([x + 0.5 + pr() * 3, z + pr() * 3, -0.6]); }
+  }
+  for (let i = 1; i < FAR.length; i++) { const [x0, z0] = FAR[i - 1], [x1, z1] = FAR[i]; for (let t = 0; t < 1; t += 0.01) { const x = x0 + (x1 - x0) * t - 1 - pr() * 4, z = z0 + (z1 - z0) * t - pr() * 3; if (Math.abs(z) < 600) reeds.push([x, z, -0.5]); } }
   buildReeds(reeds);
   birds();
 
   loadText('Mooring the boats…'); await frame();
-  const sh = ship(); sh.position.set(3, -0.95, 66.4); world.add(sh); world.userData.ship = sh;
-  for (const [x, bz] of [[-4, 65], [11, 65.2]]) { const p = mesh(new THREE.CylinderGeometry(0.16, 0.18, 1.1, 8).translate(0, 0.55, 0), M.wood); p.position.set(x, 0, 60.4); world.add(p); addCol(x - 0.2, x + 0.2, 60.2, 60.6); world.add(rope(new THREE.Vector3(x, 1, 60.4), new THREE.Vector3(x - 0.4, 0.7, bz))); }
-  const boats = [[-62, 9, true], [-48, 7, false], [-34, 8.5, true], [-21, 6.5, false], [24, 8, true], [38, 7, false], [52, 9, true], [68, 7.5, false]];
-  boats.forEach(([x, L, c], i) => {
-    const b = reedBoat(L, c); b.position.set(x, -0.95, 63.6 + (i % 2) * 0.4); b.rotation.y = rr(-0.04, 0.04); world.add(b);
+  const sh = ship(); sh.position.set(10, -0.95, 70); sh.rotation.y = Math.PI / 2; world.add(sh); world.userData.ship = sh;
+  for (const z of [65.2, 73.8]) { const p = mesh(new THREE.CylinderGeometry(0.16, 0.18, 1.1, 8).translate(0, 0.55, 0), M.wood); p.position.set(7.3, 0.05, z); world.add(p); addCol(7, 7.6, z - 0.3, z + 0.3); world.add(rope(new THREE.Vector3(7.3, 1.05, z), new THREE.Vector3(8.6, 0.7, z + (z < 70 ? 1.2 : -1.2)), 0.4)); }
+  const moor = (x, z, rot, L, canopy) => {
+    const b = reedBoat(L, canopy); b.position.set(x, -0.95, z); b.rotation.y = rot; world.add(b);
     const ph = R() * 6; anim.push(t => { b.position.y = -0.95 + Math.sin(t * 0.9 + ph) * 0.035; b.rotation.x = Math.sin(t * 0.7 + ph) * 0.012; });
-    const p = mesh(new THREE.CylinderGeometry(0.13, 0.15, 1.0, 7).translate(0, 0.5, 0), M.wood); p.position.set(x + L * 0.3, 0, 60.5); world.add(p);
-    world.add(rope(new THREE.Vector3(x + L * 0.3, 0.9, 60.5), new THREE.Vector3(x + L * 0.35, 0.4, 63.2), 0.4));
+  };
+  const bankX = z => { for (let i = 1; i < BANK.length; i++) { const [x0, z0] = BANK[i - 1], [x1, z1] = BANK[i]; if (z <= z0 && z >= z1) return x0 + (x1 - x0) * (z - z0) / (z1 - z0); } return 0; };
+  [[86, 9, true], [99, 7, false], [111, 8.5, true]].forEach(([z, L, c]) => {
+    const x = bankX(z); moor(x + 2.4, z, Math.PI / 2 + 0.08, L, c);
+    const p = mesh(new THREE.CylinderGeometry(0.13, 0.15, 1.0, 7).translate(0, 0.5, 0), M.wood); p.position.set(x - 1.2, 0, z - L * 0.3); world.add(p);
+    world.add(rope(new THREE.Vector3(x - 1.2, 0.9, z - L * 0.3), new THREE.Vector3(x + 1.9, 0.4, z - L * 0.35), 0.4));
   });
-  const far1 = reedBoat(8, true); far1.position.set(-80, -0.95, 105); far1.rotation.y = 0.5; world.add(far1);
-  const far2 = reedBoat(6); far2.position.set(60, -0.95, 130); far2.rotation.y = -0.3; world.add(far2);
-  anim.push(t => { far1.position.x = -80 + ((t * 0.9) % 200); far2.position.x = 60 - ((t * 0.6) % 160); });
+  [0.2, 0.31, 0.45, 0.58, 0.71, 0.85, 0.99].forEach((a, i) => {
+    const T = cityTangent(a), rot = Math.atan2(-T.z, T.x), L = [8, 7, 9, 6.5, 8.5, 7, 7.5][i];
+    const bp = stripPt(a, STRIP.w + 1.7); moor(bp.x, bp.z, rot, L, i % 2 === 0);
+    const pp = stripPt(a + 0.012, STRIP.w - 0.8); const p = mesh(new THREE.CylinderGeometry(0.13, 0.15, 1.0, 7).translate(0, 0.5, 0), M.wood); p.position.copy(pp); world.add(p);
+    world.add(rope(new THREE.Vector3(pp.x, 0.9, pp.z), stripPt(a + 0.012, STRIP.w + 1.4).setY(0.4), 0.4));
+  });
+  const riverPath = new THREE.CatmullRomCurve3([V(55, 320), V(62, 180), V(80, 90), V(150, 25), V(250, -110), V(330, -330)]);
+  const far1 = reedBoat(8, true), far2 = reedBoat(6); world.add(far1, far2);
+  const tq = new THREE.Vector3();
+  anim.push(t => { for (const [b, k] of [[far1, (t * 0.0025) % 1], [far2, 1 - (t * 0.0018 + 0.4) % 1]]) { const p = riverPath.getPointAt(k); b.position.set(p.x, -0.95, p.z); riverPath.getTangentAt(k, tq); b.rotation.y = Math.atan2(-tq.z, tq.x); } });
 
   loadText('Setting out the goods…'); await frame();
-  // goods stacked against the warehouse fronts
-  const goodsSpots = [[-74, 'bales'], [-66, 'jars'], [-57, 'baskets'], [-49, 'bales'], [-41, 'jars'], [-31, 'bales'], [-24, 'baskets'], [16, 'jars'], [24, 'bales'], [33, 'baskets'], [42, 'jars'], [51, 'bales'], [60, 'jars'], [70, 'baskets']];
+  // goods stacked in front of the storehouses
+  const kinds = ['bales', 'jars', 'baskets'];
   let kar = null, goods = null;
-  for (const [x, kind] of goodsSpots) {
-    const g = goodsCluster(kind); g.position.set(x, 0, QUAY.front + 0.8); world.add(g); addCol(x - 1.8, x + 1.8, QUAY.front, QUAY.front + 1.4);
-    if (x === 24) kar = g; if (x === 16) goods = g;
+  [0.2, 0.28, 0.45, 0.53, 0.66, 0.75, 0.86, 0.95, 1.04].forEach((a, i) => {
+    const N = cityNormal(a), rot = Math.atan2(N.x, N.z), p = stripPt(a, STRIP.depth + 0.85);
+    const g = goodsCluster(kinds[i % 3]); g.position.copy(p); g.rotation.y = rot; world.add(g); addOCol(p.x, p.z, 1.8, 0.7, rot);
+    if (a === 0.45) kar = g; if (a === 0.28) goods = g;
+  });
+  // foreshore: bales, jars and reed shelters
+  for (const [x, z, k] of [[-28, 56, 'bales'], [-36, 44, 'jars'], [-46, 52, 'baskets'], [-11, 50, 'bales'], [-17, 40.5, 'jars'], [-52, 40, 'bales']]) { const g = goodsCluster(k); g.position.set(x, 0, z); g.rotation.y = rr(-0.3, 0.3); world.add(g); addCol(x - 1.9, x + 1.9, z - 0.8, z + 0.8); }
+  for (const [x, z, r] of [[-58, 52, 0.2], [-66, 44, -0.3], [-42, 61, 0.1]]) {
+    const hut = new THREE.Group();
+    const roof = new THREE.CylinderGeometry(1.6, 1.6, 3.6, 12, 1, true, 0, Math.PI); roof.rotateZ(Math.PI / 2); roof.translate(0, 1.4, 0);
+    hut.add(mesh(roof, std({ map: matTex, side: THREE.DoubleSide })));
+    for (const [px, pz] of [[-1.7, -1.4], [1.7, -1.4], [-1.7, 1.4], [1.7, 1.4]]) hut.add(mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.5, 5).translate(px, 0.75, pz), M.wood));
+    hut.position.set(x, 0, z); hut.rotation.y = r; world.add(hut); addOCol(x, z, 1.8, 1.6, r);
   }
-  // the scribe's corner by a warehouse door, as in the film: jars, bales and the seated scribe
-  const sx = -10, sz = QUAY.front + 1.3;
-  const scribeJars = new THREE.Group();
+
+  // the scribe's corner by a storehouse door, as in the film
+  const aS = 0.35, NS = cityNormal(aS), rotS = Math.atan2(NS.x, NS.z), S = stripPt(aS, STRIP.depth + 1.4);
+  const corner = new THREE.Group(); corner.position.copy(S); corner.rotation.y = rotS; world.add(corner);
+  const scribeJars = new THREE.Group(); corner.add(scribeJars);
   for (const [x, z, s, m] of [[-1.8, -0.4, 1.2, M.jar], [-1.2, -0.6, 1.0, M.jarPale], [-2.4, 0.1, 0.9, M.jarDark], [1.6, -0.5, 1.15, M.jar], [2.2, -0.2, 0.95, M.jarPale]]) { const j = jar(s, m); j.position.set(x, 0, z); scribeJars.add(j); }
   const jg = jug(1.0); jg.position.set(1.2, 0, 0.2); scribeJars.add(jg);
-  scribeJars.position.set(sx, 0, sz); world.add(scribeJars);
-  const seatBale = bale(0.8, 0.45, 0.6); seatBale.position.set(sx, 0, sz - 0.2); world.add(seatBale);
+  const seatBale = bale(0.8, 0.45, 0.6); seatBale.position.set(0, 0, -0.2); corner.add(seatBale);
+  const tab = mesh(box(0.1, 0.03, 0.075, 0, 0, 0, 1), M.clay, false); tab.position.set(0.02, 0.62, 0.38); tab.rotation.x = -0.35; corner.add(tab);
+  const sb = bale(0.9, 0.62, 0.7); sb.position.set(1.4, 0, 0.5); corner.add(sb);
+  const sealing = mesh(new THREE.CylinderGeometry(0.06, 0.065, 0.025, 14).rotateX(Math.PI / 2).translate(0, 0, 0.36), M.clay, false); sealing.position.set(1.4, 0.42, 0.5); corner.add(sealing);
+  const seal = mesh(box(0.028, 0.028, 0.009, 0, 0, 0, 1), M.stone, false); seal.position.set(1.55, 0.63, 0.45); seal.rotation.x = -Math.PI / 2; corner.add(seal);
   const scribe = human(sumerian({ beard: 1.2, hair: 'short', lower: 'long', lowerMat: M.linen, cloak: M.linen, pose: 'sit', arms: 'lap', skin: '#9a6a45' }));
-  placePerson(scribe, sx, sz - 0.05, 0.1);
-  const tab = mesh(box(0.1, 0.03, 0.075, 0, 0, 0, 1), M.clay, false); tab.position.set(sx + 0.02, 0.62, sz + 0.38); tab.rotation.x = -0.35; world.add(tab);
-  const sb = bale(0.9, 0.62, 0.7); sb.position.set(sx + 1.4, 0, sz + 0.5); world.add(sb);
-  const sealing = mesh(new THREE.CylinderGeometry(0.06, 0.065, 0.025, 14).rotateX(Math.PI / 2).translate(0, 0, 0.36), M.clay, false); sealing.position.set(sx + 1.4, 0.42, sz + 0.5); world.add(sealing);
-  const seal = mesh(box(0.028, 0.028, 0.009, 0, 0, 0, 1), M.stone, false); seal.position.set(sx + 1.55, 0.63, sz + 0.45); seal.rotation.x = -Math.PI / 2; world.add(seal);
-  addCol(sx - 2.9, sx + 2.6, QUAY.front, sz + 1.0);
+  placePerson(scribe, S.x, S.z, rotS);
+  const cc = S.clone().addScaledVector(NS, 0.1); addOCol(cc.x, cc.z, 2.8, 1.1, rotS);
+  corner.updateMatrixWorld(true);
+  const wpos = (o, y = 0) => o.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, y, 0));
 
-  // the trading mat
-  const tx = -19, tz = 56;
+  // the trading mat on the foreshore
+  const tx = -24, tz = 46;
   const mat = mesh(box(3.2, 0.03, 2.3, 0, 0.015, 0, 1), M.mat, false, true); mat.position.set(tx, 0, tz); world.add(mat);
   const bal = new THREE.Group();
   bal.add(mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.55, 6).translate(0, 0.275, 0), M.wood));
@@ -1127,36 +1240,35 @@ async function build() {
   placePerson(trader, tx, tz - 1.4, 0);
   addCol(tx - 1.6, tx + 1.6, tz - 1.8, tz + 1.15);
 
-  // dockworkers hauling at the ship, crew aboard
-  const dock1 = human(sumerian({ nod: 'agree' })); placePerson(dock1, -4.6, 59.6, 2.6);
-  const dock2 = human(sumerian()); placePerson(dock2, 11.6, 59.7, -2.6);
+  // dockworkers at the pier, crew aboard
+  placePerson(human(sumerian({ nod: 'agree' })), 6.4, 66.2, Math.PI / 2);
+  placePerson(human(sumerian()), 6.2, 72.6, Math.PI / 2 + 0.4);
   for (let k = 0; k < 3; k++) { const c = human({ skin: pick(SKIN.mel), hair: 'bun', headband: '#d8c8a8', beard: 0.8, lower: 'kilt', lowerMat: M.white, h: 0.95 }); c.position.set(-2.2 + k * 2.2, 0.48, (k % 2 ? 0.5 : -0.5)); c.rotation.y = k * 1.3; sh.add(c); people.push(c); }
 
-  // porters carrying loads between the boats and the warehouses
-  const porterRoutes = [[-46, -50], [-30, -33], [22, 26], [38, 41], [52, 49], [-60, -64], [64, 61]];
-  porterRoutes.forEach(([bx, wx], k) => {
-    const p = human(sumerian({ carry: k % 3 === 2 ? 'jar' : 'bale' })); placePerson(p, bx, 60, 0);
-    p.userData.route = [new THREE.Vector3(bx, 0, 60.4), new THREE.Vector3(wx, 0, QUAY.front + 2.2)]; p.userData.spd = rr(1.0, 1.3); p.userData.leg = k % 2; p.userData.wait = rr(0, 3);
-    walkers.push(p);
-  });
-  // people standing and talking on the quay
-  for (const [x, z, r, extra] of [[30, 56.5, -1.4, { nod: 'agree' }], [31.2, 56.3, 1.6, {}], [-38, 55.6, 1.2, { nod: 'headShake' }], [-36.9, 56.1, -1.9, { nod: 'agree' }], [-37.5, 56.7, 3.0, {}], [56, 56.4, 0.6, { nod: 'agree' }]]) {
+  // porters between boats and storehouse doors, and on the foreshore
+  [0.24, 0.5, 0.69, 0.92].forEach((a, k) => walker(placePerson(human(sumerian({ carry: k % 3 === 2 ? 'jar' : 'bale' })), 0, 0), [stripPt(a + 0.015, STRIP.w - 1.2), stripPt(a, STRIP.depth + 2.2)], rr(1.0, 1.3)));
+  walker(placePerson(human(sumerian({ carry: 'bale' })), 0, 0), [[2, 68.5], [-5, 60], [-10, 52.6]], 1.15);
+  walker(placePerson(human(sumerian({ carry: 'bale' })), 0, 0), [[0, 72.5], [-14, 60], [-27, 57.2]], 1.05);
+  walker(placePerson(human(sumerian({ carry: 'jar' })), 0, 0), [[-4.8, 92], [-16, 70], [-34, 45.2]], 1.1);
+  walker(placePerson(human(sumerian({ carry: 'bale' })), 0, 0), [[-12, 51.5], [-30, 40], [-55, 30]], 1.0);
+  // people standing and talking
+  for (const [x, z, r, extra] of [[-35, 52, -1.4, { nod: 'agree' }], [-33.8, 51.8, 1.6, {}], [-45, 47, 1.2, { nod: 'headShake' }], [-43.9, 47.5, -1.9, { nod: 'agree' }], [-44.6, 46.1, 0.3, {}], [-14, 45, 2.4, { nod: 'agree' }], [-18, 56, -0.8, {}]]) {
     placePerson(human(sumerian(Object.assign({ lower: R() < .5 ? 'long' : 'kilt', hair: R() < .6 ? 'bald' : 'short', beard: R() < .4 ? 1.3 : 0, cloak: R() < .4 ? M.woolPale : null }, extra))), x, z, r);
   }
-  // a woman with a water jar on her head walking along the quay
-  const wj = human({ female: true, skin: '#a3734b', hair: 'bun', lower: 'long', lowerMat: M.linen, top: M.linen, carry: 'jar', h: 0.93 });
-  placePerson(wj, 40, 57.5, 0); wj.userData.route = [new THREE.Vector3(-70, 0, 57.8), new THREE.Vector3(75, 0, 57.8)]; wj.userData.spd = 1.05; wj.userData.leg = 0; wj.userData.wait = 0; walkers.push(wj);
+  for (const [a, off, r] of [[0.62, 10.5, 1.4], [0.625, 11.6, -1.8]]) { const p = stripPt(a, off); placePerson(human(sumerian({ lower: 'long', hair: 'short', beard: 1.2, cloak: M.woolPale, nod: 'agree' })), p.x, p.z, along(a) + r); }
+  // a woman with a water jar walking the quay
+  walker(placePerson(human({ female: true, skin: '#a3734b', hair: 'bun', lower: 'long', lowerMat: M.linen, top: M.linen, carry: 'jar', h: 0.93 }), 0, 0),
+    [[-36, 56], [-6, 55], ...[0.12, 0.24, 0.36, 0.48, 0.6, 0.72, 0.84, 0.96, 1.06].map(a => stripPt(a, 12.6))], 1.05);
+  // the donkey, waiting on the water side of the quay as in the film
+  const dPos = stripPt(0.405, 13.6), dk = donkey(); dk.position.copy(dPos); dk.rotation.y = along(0.405) - Math.PI / 2 + 0.2; world.add(dk); addOCol(dPos.x, dPos.z, 1.0, 0.5, dk.rotation.y);
+  const hPos = stripPt(0.418, 12.4); const handler = human(sumerian({ nod: 'agree' })); placePerson(handler, hPos.x, hPos.z, yawBack(0.418) + 0.6);
 
-  const dk = donkey(); dk.position.set(6.8, 0, 47); dk.rotation.y = 2.6; world.add(dk); addCol(5.8, 7.8, 46, 48);
-  const handler = human(sumerian({ nod: 'agree' })); placePerson(handler, 5.6, 48.3, 2.9);
-
-  // life in the city: people walking the main street and lanes
-  const cityRoutes = [[[-1.8, 30], [-1.8, -36]], [[1.8, -38], [1.8, 28]], [[4.5, -8], [4.5, -28]], [[-3, 12], [-3, -20]]];
-  cityRoutes.forEach(([a, b], k) => {
-    const f = k === 2;
-    const p = human(f ? { female: true, skin: '#a3734b', hair: 'bun', lower: 'long', lowerMat: M.linen, top: M.linen, carry: 'jar', h: 0.93 } : sumerian({ lower: 'long', hair: 'short', beard: 1.1, cloak: M.woolPale }));
-    placePerson(p, a[0], a[1], 0); p.userData.route = [new THREE.Vector3(a[0], 0, a[1]), new THREE.Vector3(b[0], 0, b[1])]; p.userData.spd = rr(0.95, 1.25); p.userData.leg = 0; p.userData.wait = rr(0, 4); walkers.push(p);
-  });
+  // life in the city: people walking the street from the gate to the temple
+  const ST = STREET.map(([x, z]) => V(x, z));
+  walker(placePerson(human(sumerian({ lower: 'long', hair: 'short', beard: 1.1, cloak: M.woolPale })), 0, 0), ST.slice(0, 4), 1.15);
+  walker(placePerson(human(sumerian({ lower: 'long', hair: 'short', beard: 1.4 })), 0, 0), ST.slice(4, 9).reverse(), 1.0);
+  walker(placePerson(human({ female: true, skin: '#a3734b', hair: 'bun', lower: 'long', lowerMat: M.linen, top: M.linen, carry: 'jar', h: 0.93 }), 0, 0), ST.slice(2, 6), 0.95);
+  walker(placePerson(human(sumerian()), 0, 0), ST.slice(5, 9), 1.2);
 
   // oven square
   const ovenP = [[0.62, 0], [0.62, 0.3], [0.55, 0.7], [0.36, 1.0], [0.2, 1.08]].map(v => new THREE.Vector2(v[0], v[1]));
@@ -1170,50 +1282,54 @@ async function build() {
   placePerson(woman, 14.4, -19.8, 0);
   for (let i = 0; i < 4; i++) { const j = jar(rr(0.6, 0.9), i % 2 ? M.jar : M.jarPale); j.position.set(20 + i * 0.7, 0, -25.5); world.add(j); }
   addCol(13.8, 15, -20.2, -18.6); addCol(19.6, 23, -26, -25);
-  smoke(-30, 4, -40, 6); smoke(36, 4, -6, 6);
+  smoke(-40, 4, -40, 6); smoke(40, 4, -60, 6);
 
   // priestess and attendant at the temple door
+  const doorZ = TERRACE.z1 - 13;
   const priestess = human({ female: true, skin: '#a8754e', hair: 'short', lower: 'long', lowerMat: M.flounce, top: M.flounce, cloak: M.flounce, cap: M.flounce, arms: 'offer', h: 0.95 });
-  placePerson(priestess, 2.6, -74.2, 0.2, TERRACE.h);
-  const attend = human(sumerian({ lower: 'long', lowerMat: M.linen, nod: 'agree' })); placePerson(attend, -2.4, -73.4, -0.4, TERRACE.h);
-  addCol(2.1, 3.1, -74.7, -73.7, 1); addCol(-2.9, -1.9, -73.9, -72.9, 1);
+  placePerson(priestess, 2.6, doorZ + 1.8, 0.2, TERRACE.h);
+  placePerson(human(sumerian({ lower: 'long', lowerMat: M.linen, nod: 'agree' })), -2.4, doorZ + 2.6, -0.4, TERRACE.h);
+  addCol(2.1, 3.1, doorZ + 1.3, doorZ + 2.3, 1); addCol(-2.9, -1.9, doorZ + 2.1, doorZ + 3.1, 1);
 
   // the two merchants, dressed as in the film
   leader = human({ skin: '#6f4429', hair: 'bun', headband: '#e2c98f', beard: 1.25, lower: 'long', lowerMat: M.red, cloak: M.red, bracelet: true, h: 0.97 });
   follower = human({ skin: '#7a4c2e', hair: 'bun', headband: '#c9a46a', beard: 0.7, lower: 'long', lowerMat: M.white, cloak: M.white, necklace: true, h: 0.96 });
-  placePerson(leader, -2, 57, -Math.PI / 2); placePerson(follower, -1, 58, -Math.PI / 2);
+  placePerson(leader, 3, 70.5, 0); placePerson(follower, 3.7, 71.4, 0);
   leader.userData.level = 'ground'; follower.userData.level = 'ground';
 
   // hotspots
-  hotspot('ship', new THREE.Vector3(3, 5.5, 66.4), { dist: 24, pitch: 0.26, yaw: 0.35, objs: [sh] });
-  hotspot('merchants', new THREE.Vector3(-2, 2.3, 57), { dist: 3.6, pitch: 0.12, objs: [leader, follower], follow: true });
-  hotspot('kar', new THREE.Vector3(24, 2.4, QUAY.front + 0.8), { dist: 16, pitch: 0.3, yaw: -0.7, focusAt: new THREE.Vector3(22, 2, 55), objs: [kar] });
+  const gN = cityNormal(CITY.gate), gYaw = Math.atan2(gN.x, gN.z);
+  hotspot('ship', new THREE.Vector3(10, 6, 70), { dist: 26, pitch: 0.3, yaw: -0.65, focusAt: new THREE.Vector3(8, 2, 70), objs: [sh] });
+  hotspot('merchants', new THREE.Vector3(3, 2.3, 70.5), { dist: 3.6, pitch: 0.12, objs: [leader, follower], follow: true });
+  hotspot('kar', wpos(kar, 2.4), { dist: 15, pitch: 0.25, yaw: yawBack(0.45) + 0.2, focusAt: stripPt(0.47, 9).setY(2), objs: [kar] });
   hotspot('weights', new THREE.Vector3(tx - 0.68, 0.35, tz + 0.27), { dist: 0.75, pitch: 0.85, yaw: 0.3, focusAt: new THREE.Vector3(tx - 0.68, 0.03, tz + 0.27), objs: [weights, bal] });
   hotspot('beads', new THREE.Vector3(tx + 0.7, 0.35, tz + 0.28), { dist: 1.1, pitch: 0.8, focusAt: new THREE.Vector3(tx + 0.7, 0.05, tz + 0.25), objs: [beads, trader, mat] });
-  hotspot('seal', new THREE.Vector3(sx + 1.45, 1.05, sz + 0.5), { dist: 1.4, pitch: 0.45, yaw: 0.5, focusAt: new THREE.Vector3(sx + 1.45, 0.5, sz + 0.55), objs: [sb, sealing, seal] });
-  hotspot('scribe', new THREE.Vector3(sx, 1.65, sz), { dist: 3.2, pitch: 0.22, yaw: 0.25, focusAt: new THREE.Vector3(sx, 0.75, sz + 0.2), objs: [scribe, scribeJars] });
-  hotspot('goods', new THREE.Vector3(16, 1.8, QUAY.front + 0.8), { dist: 6, pitch: 0.35, yaw: 0.3, objs: [goods] });
-  hotspot('donkey', new THREE.Vector3(6.8, 2.3, 47), { dist: 5.5, pitch: 0.25, yaw: 0.9, objs: [dk, handler] });
-  hotspot('palm', new THREE.Vector3(-4.2, 3, 43.5), { dist: 14, pitch: 0.2, yaw: 0.3, focusAt: new THREE.Vector3(-4.2, 5, 43.5) });
-  hotspot('rampart', new THREE.Vector3(10, 9.5, 31), { dist: 34, pitch: 0.32, yaw: 0.55, focusAt: new THREE.Vector3(4, 4, 30) });
+  hotspot('seal', wpos(sb, 1.05), { dist: 1.4, pitch: 0.45, yaw: rotS + 0.5, focusAt: wpos(sb, 0.5), objs: [sb, sealing, seal] });
+  hotspot('scribe', S.clone().setY(1.65), { dist: 3.2, pitch: 0.22, yaw: rotS + 0.25, focusAt: S.clone().setY(0.75), objs: [scribe, scribeJars] });
+  hotspot('goods', wpos(goods, 1.8), { dist: 6, pitch: 0.35, yaw: Math.atan2(cityNormal(0.28).x, cityNormal(0.28).z) + 0.3, focusAt: wpos(goods, 0.6), objs: [goods] });
+  hotspot('donkey', dPos.clone().setY(2.3), { dist: 5.5, pitch: 0.25, yaw: yawBack(0.405) + 0.9, focusAt: dPos.clone().setY(1), objs: [dk, handler] });
+  hotspot('palm', new THREE.Vector3(-104, 3, 44), { dist: 14, pitch: 0.2, yaw: 0.6, focusAt: new THREE.Vector3(-104, 5, 44) });
+  hotspot('rampart', cityPt(CITY.rout - 2, CITY.gate + 0.08).setY(9.5), { dist: 36, pitch: 0.32, yaw: gYaw + 0.5, focusAt: cityPt(CITY.rout, CITY.gate).setY(4) });
   hotspot('house', new THREE.Vector3(15, 2.2, 4), { dist: 15, pitch: 1.0, yaw: -0.6, focusAt: new THREE.Vector3(15, 0, 4) });
   hotspot('oven', new THREE.Vector3(18, 1.6, -22), { dist: 5.5, pitch: 0.35, yaw: 0.5, focusAt: new THREE.Vector3(16.5, 0.5, -20.8), objs: [oven, quern, woman] });
-  hotspot('temple', new THREE.Vector3(0, 17, -76), { dist: 46, pitch: 0.25, yaw: 0.55, focusAt: new THREE.Vector3(0, 8, -80) });
-  hotspot('priestess', new THREE.Vector3(2.6, TERRACE.h + 2.1, -74.2), { dist: 3.2, pitch: 0.12, yaw: 0.2, focusAt: new THREE.Vector3(2.6, TERRACE.h + 1.3, -74.2), objs: [priestess] });
+  hotspot('temple', new THREE.Vector3(0, 17, doorZ), { dist: 46, pitch: 0.25, yaw: 0.55, focusAt: new THREE.Vector3(0, 8, (TERRACE.z0 + TERRACE.z1) / 2) });
+  hotspot('priestess', new THREE.Vector3(2.6, TERRACE.h + 2.1, doorZ + 1.8), { dist: 3.2, pitch: 0.12, yaw: 0.2, focusAt: new THREE.Vector3(2.6, TERRACE.h + 1.3, doorZ + 1.8), objs: [priestess] });
 
   walkables.push(courtFloor);
 }
 
 // ---------- tour ----------
-const V = (x, z) => new THREE.Vector3(x, 0, z);
+const STOP_A = 0.385;
+const gateN = cityNormal(CITY.gate);
 const STOPS = [
-  { title: 'The quay', pos: V(-2, 57), face: -1.35, yaw: -1.35, pitch: 0.14, dist: 7.5, text: 'You have just stepped off the ship from Meluhha, after a voyage of more than 2,000 km up the Gulf. Storehouses line the quay.', spots: ['ship', 'merchants', 'kar', 'goods'] },
-  { title: 'Trading on the mat', pos: V(-16.2, 57.8), path: [V(-9, 57.9)], yaw: 2.0, pitch: 0.3, dist: 7, text: 'A Sumerian trader weighs carnelian beads against a set of tiny stone cubes. Nearby a scribe records deals in clay.', spots: ['weights', 'beads', 'scribe', 'seal'] },
-  { title: 'The city gate', pos: V(1, 37), path: [V(-6, 57.5), V(1, 50), V(1, 43)], yaw: 0.1, text: 'Behind the warehouses rises the great sloping rampart. One gate leads into the city.', spots: ['rampart', 'donkey', 'palm'] },
-  { title: 'A courtyard house', pos: V(5, 4), path: [V(0, 18), V(3.5, 9)], yaw: -1.2, text: 'The door on your right opens into a house. Walk in: it is built around an open courtyard.', spots: ['house'] },
+  { title: 'The stone pier', pos: V(3, 70.5), face: Math.PI / 2, yaw: -0.75, pitch: 0.45, dist: 30, text: 'The ship from Meluhha has moored at the stone pier below the city’s great rampart, after a voyage of more than 2,000 km up the Gulf.', spots: ['ship', 'merchants', 'rampart'] },
+  { title: 'The storehouse quay', pos: stripPt(STOP_A, 11.5), path: [V(-3, 66), V(-3, 58), V(2, 52), ...[0.1, 0.2, 0.3].map(a => stripPt(a, 11.5))], face: yawBack(STOP_A), yaw: yawBack(STOP_A), pitch: 0.12, dist: 7.5, text: 'Along the river the quay narrows under the rampart. Storehouses line it, reed boats tie up opposite, and a scribe records what comes ashore.', spots: ['kar', 'goods', 'scribe', 'seal', 'donkey'] },
+  { title: 'Trading on the foreshore', pos: V(-21.5, 48.2), path: [...[0.3, 0.2, 0.1].map(a => stripPt(a, 11.5)), V(2, 52), V(-6, 55), V(-17, 51)], yaw: 2.2, pitch: 0.32, dist: 7, text: 'On the open foreshore a Sumerian trader weighs carnelian beads against a set of tiny stone cubes.', spots: ['weights', 'beads', 'palm'] },
+  { title: 'The city gate', pos: cityPt(CITY.rout + 7, CITY.gate), path: [V(-30, 50), V(-50, 36)], yaw: Math.atan2(gateN.x, gateN.z) + 0.15, pitch: 0.3, dist: 12, text: 'A single gate leads through the great sloping rampart into the city.', spots: ['rampart'] },
+  { title: 'A courtyard house', pos: V(5, 4), path: [cityPt(CITY.rout - 6, CITY.gate), GATE_IN, V(-30, 2), V(-6, 3)], yaw: -1.2, text: 'The door on your right opens into a house. Walk in: it is built around an open courtyard.', spots: ['house'] },
   { title: 'Bread and grain', pos: V(11, -20), path: [V(4, -6), V(5, -18)], yaw: -1.0, text: 'A small open square with a bread oven and a woman grinding barley.', spots: ['oven'] },
-  { title: 'The temple terrace', pos: V(0, -42.5), path: [V(4.5, -27), V(0.5, -38)], yaw: 0.05, pitch: 0.42, text: 'A ramp climbs the brick terrace of Nanna, the moon god who watched over Ur.', spots: ['temple'] },
-  { title: 'The temple of Nanna', pos: V(0, -69), path: [V(0, -50), V(0, -63)], yaw: 0.2, text: 'At the temple door stands Enheduanna, Sargon’s daughter and high priestess of the moon god.', spots: ['priestess', 'temple'] },
+  { title: 'The temple terrace', pos: V(0, RAMP.zBot + 2.5), path: [V(4.5, -27), V(1, -45), V(0.5, RAMP.zBot + 7)], yaw: 0.05, pitch: 0.42, text: 'A ramp climbs the brick terrace of Nanna, the moon god who watched over Ur.', spots: ['temple'] },
+  { title: 'The temple of Nanna', pos: V(0, TERRACE.z1 - 6), path: [V(0, RAMP.zBot - 3), V(0, RAMP.zTop + 0.5)], yaw: 0.2, text: 'At the temple door stands Enheduanna, Sargon’s daughter and high priestess of the moon god.', spots: ['priestess', 'temple'] },
 ];
 let stopIdx = 0;
 
@@ -1271,9 +1387,9 @@ function setPath(points) { leader.userData.path = points.map(p => p.clone()); }
 function walkTo(pt) {
   const lv = leader.userData.level, tgt = structureAt(pt.x, pt.z);
   const path = [];
-  if (lv === 'ground' && tgt) path.push(V(0, -44.2), V(0, -63.5));
-  if (lv !== 'ground' && !tgt) { if (lv === 'top') path.push(V(0, -63.5)); path.push(V(0, -44.2)); }
-  path.push(V(pt.x, pt.z)); setPath(path); leader.userData.stuck = 0; tourArrive = null;
+  if (lv === 'ground' && tgt) path.push(V(0, RAMP.zBot + 0.8), V(0, RAMP.zTop - 0.5));
+  if (lv !== 'ground' && !tgt) { if (lv === 'top') path.push(V(0, RAMP.zTop - 0.5)); path.push(V(0, RAMP.zBot + 0.8)); }
+  path.push(V(pt.x, pt.z)); setPath(path); leader.userData.stuck = 0; leader.userData.faceTo = undefined; tourArrive = null;
 }
 function moveEntity(p, dx, dz) {
   const u = p.userData; let lv = stepLevel(u.level, p.position.x + dx, p.position.z + dz);
@@ -1290,7 +1406,7 @@ function updateLeader(dt) {
   const s = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
   const speed = keys.has('shift') ? RUN : WALK;
   if (f || s) {
-    u.path = null; tourArrive = null; if (cam.mode === 'focus') closePanel();
+    u.path = null; u.faceTo = undefined; tourArrive = null; if (cam.mode === 'focus') closePanel();
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = -fz, rz = fx;
     const l = Math.hypot(f, s); vx = (fx * f + rx * s) / l * speed; vz = (fz * f + rz * s) / l * speed;
   } else if (u.path && u.path.length) {
@@ -1306,6 +1422,7 @@ function updateLeader(dt) {
     const last = trail[trail.length - 1];
     if (!last || last.distanceTo(leader.position) > 0.25) { const p = leader.position.clone(); p.level = u.level; trail.push(p); if (trail.length > 400) trail.shift(); }
   }
+  if (sp <= 0.01 && u.faceTo !== undefined) turn(leader, u.faceTo, dt * 4);
   u.curSpeed = sp;
   animateHuman(leader, dt, sp);
   leader.position.y = heightAt(u.level, leader.position.z);
@@ -1320,7 +1437,7 @@ function updateFollower(dt) {
   const dx = goal.x - follower.position.x, dz = goal.z - follower.position.z, d = Math.hypot(dx, dz);
   let sp = 0;
   if (d > 0.12) { sp = Math.min(RUN, Math.max(0, d - 0.1) * 2.0); sp = Math.min(sp, (leader.userData.curSpeed || 0) + d * 0.8); const st = Math.min(d, sp * dt); follower.position.x += dx / d * st; follower.position.z += dz / d * st; if (sp > 0.2) turn(follower, Math.atan2(dx, dz), dt * 8); }
-  if (sp < 0.2) turn(follower, leader.rotation.y + 0.5, dt * 2);
+  if (sp < 0.2) turn(follower, leader.rotation.y + 0.15, dt * 2);
   const fs = structureAt(follower.position.x, follower.position.z), lv = fs && leader.userData.level !== 'ground' ? fs : 'ground';
   animateHuman(follower, dt, sp < 0.15 ? 0 : sp);
   follower.position.y = heightAt(lv, follower.position.z);
@@ -1330,8 +1447,8 @@ function updatePeople(dt) {
   for (const p of walkers) {
     const u = p.userData;
     if (u.wait > 0) { u.wait -= dt; animateHuman(p, dt, 0); continue; }
-    const t = u.route[u.leg ? 0 : 1], dx = t.x - p.position.x, dz = t.z - p.position.z, d = Math.hypot(dx, dz);
-    if (d < 0.25) { u.leg ^= 1; u.wait = rr(1.5, 5); animateHuman(p, dt, 0); continue; }
+    const t = u.route[u.i], dx = t.x - p.position.x, dz = t.z - p.position.z, d = Math.hypot(dx, dz);
+    if (d < 0.25) { let n = u.i + u.dir; if (n < 0 || n >= u.route.length) { u.dir *= -1; n = u.i + u.dir; u.wait = rr(1.5, 5); } u.i = n; animateHuman(p, dt, u.wait > 0 ? 0 : u.spd); continue; }
     const st = Math.min(d, u.spd * dt); p.position.x += dx / d * st; p.position.z += dz / d * st;
     turn(p, Math.atan2(dx, dz), dt * 6); animateHuman(p, dt, u.spd);
   }
@@ -1388,12 +1505,12 @@ function showStop(i) {
   $('nextBtn').textContent = i === STOPS.length - 1 ? 'End of the walk' : 'Walk on ›';
   renderChips();
 }
-function arrive(i) { stopIdx = i; showStop(i); const s = STOPS[i]; camGoal.yaw = s.yaw; camGoal.pitch = s.pitch || 0.38; camGoal.dist = s.dist || 8.5; }
+function arrive(i) { stopIdx = i; showStop(i); const s = STOPS[i]; leader.userData.faceTo = s.face; camGoal.yaw = s.yaw; camGoal.pitch = s.pitch || 0.38; camGoal.dist = s.dist || 8.5; }
 function goStop(i) {
   if (i < 0 || i >= STOPS.length) return; closePanel();
   const s = STOPS[i];
   const pts = i > stopIdx ? STOPS.slice(stopIdx + 1, i + 1).flatMap(x => [...(x.path || []), x.pos]) : STOPS.slice(i + 1, stopIdx + 1).reverse().flatMap(x => [x.pos, ...[...(x.path || [])].reverse()]).slice(1).concat([s.pos]);
-  setPath(pts); tourArrive = i;
+  setPath(pts); leader.userData.faceTo = undefined; tourArrive = i;
   $('stopNum').textContent = `Walking to stop ${i + 1}`; $('stopTitle').textContent = s.title; $('stopText').textContent = ''; $('chips').innerHTML = '';
 }
 $('nextBtn').addEventListener('click', () => goStop(stopIdx + 1));
