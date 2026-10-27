@@ -72,6 +72,20 @@
   #journal .found .dot { background:var(--gold); border-color:var(--gold); }
   #journal .where { margin-left:auto; color:var(--muted); font-size:12px; }
 
+  #mapBox { position:fixed; left:max(12px, env(safe-area-inset-left)); top:calc(max(12px, env(safe-area-inset-top)) + 92px); padding:8px 10px 10px; width:224px; }
+  #mapBox .maphead { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  #mapToggle { width:28px; height:28px; border-radius:50%; border:1px solid var(--line); background:rgba(255,255,255,.05); display:grid; place-items:center; padding:0; }
+  #mapToggle svg { transition:transform .25s; }
+  #map { display:block; width:204px; height:168px; border-radius:8px; touch-action:manipulation; }
+  #mapBox.closed { width:auto; padding:6px 8px 6px 12px; }
+  #mapBox.closed .maphead { margin:0; gap:10px; }
+  #mapBox.closed #map { display:none; }
+  #mapBox.closed #mapToggle svg { transform:rotate(180deg); }
+  @media (max-width: 720px) {
+    #mapBox { top:calc(max(12px, env(safe-area-inset-top)) + 104px); width:150px; padding:6px 8px 8px; }
+    #map { width:134px; height:110px; }
+    body.panel-open #mapBox { display:none; }
+  }
   #intro { position:fixed; inset:0; display:grid; place-items:center; padding:16px;
     background:radial-gradient(ellipse at 50% 40%, rgba(16,26,51,.55), rgba(16,26,51,.88)); transition:opacity .6s; }
   #intro.gone { opacity:0; pointer-events:none; }
@@ -140,6 +154,10 @@
   <div class="src" id="pSrc"></div>
 </aside>
 
+<div id="mapBox" class="glass">
+  <div class="maphead"><span class="eyebrow">Map</span><button id="mapToggle" type="button" aria-expanded="true" aria-controls="map" aria-label="Hide map"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+  <canvas id="map" aria-label="Map of Ur showing the eight stops and where the merchants are; click a number to walk there"></canvas>
+</div>
 <div id="journal" class="glass">
   <h2>Discoveries</h2>
   <ol id="jList"></ol>
@@ -153,6 +171,7 @@
     <ul>
       <li>Click anything marked <b style="color:var(--gold)">i</b>, or the people and objects themselves, to zoom in and read what archaeologists actually found.</li>
       <li>Every entry says whether it is direct evidence, later evidence or reconstruction.</li>
+      <li>The small map shows where you are; click a number on it to walk to that stop.</li>
       <li>A narrator speaks at each stop; you can switch the voice off or replay it from the bar at the bottom.</li>
       <li>The city is shown at about a fifth of its real size, and people and buildings are simplified.</li>
     </ul>
@@ -1644,11 +1663,107 @@ canvas.addEventListener('pointerdown', () => startAmbience(), { once: true });
 showAmb();
 window.__amb = amb;
 
+// ---------- the small map ----------
+// drawn from the same layout as the 3D world: north (−z) is up, the river on the right
+const MAP = { x0: -158, x1: 190, z0: -190, z1: 96 };
+const mapBox = $('mapBox'), mapCv = $('map'), mapCtx = mapCv.getContext('2d');
+let mapStatic = null, mapW = 0, mapH = 0, mapDpr = 1;
+let mapOpen = !mobile;
+try { const v = localStorage.getItem('ur-map'); if (v) mapOpen = v === 'open'; } catch (e) { }
+const mx = x => (x - MAP.x0) / (MAP.x1 - MAP.x0) * mapW, mz = z => (z - MAP.z0) / (MAP.z1 - MAP.z0) * mapH;
+function drawMapStatic() {
+  mapDpr = Math.min(devicePixelRatio || 1, 2);
+  mapW = mapCv.clientWidth; mapH = mapCv.clientHeight;
+  mapCv.width = Math.round(mapW * mapDpr); mapCv.height = Math.round(mapH * mapDpr);
+  const [c, g] = makeCanvas(mapCv.width, mapCv.height); g.scale(mapDpr, mapDpr);
+  g.fillStyle = '#cbb07f'; g.fillRect(0, 0, mapW, mapH);
+  // fields beyond the walls
+  g.fillStyle = 'rgba(110,128,70,.35)';
+  for (let z = MAP.z0; z < MAP.z1; z += 22) for (let x = MAP.x0; x < MAP.x1; x += 30) {
+    if (cityR(x + 15, z + 11) < CITY.rout + 20 || (z > -75 && x > -150 && x < 210) || z + 11 > bankZ(x + 15) - 6) continue;
+    g.fillRect(mx(x + 1), mz(z + 1), mx(x + 29) - mx(x + 1), mz(z + 21) - mz(z + 1));
+  }
+  // the river
+  g.fillStyle = '#6f7d78'; g.beginPath();
+  BANK.forEach(([x, z], i) => i ? g.lineTo(mx(x), mz(z)) : g.moveTo(mx(x), mz(z)));
+  [...FAR].reverse().forEach(([x, z]) => g.lineTo(mx(x), mz(z)));
+  g.closePath(); g.fill();
+  // inside the walls
+  const ell = r => { g.beginPath(); g.ellipse(mx(CITY.cx), mz(CITY.cz), r * CITY.sx * mapW / (MAP.x1 - MAP.x0), r * CITY.sz * mapH / (MAP.z1 - MAP.z0), 0, 0, 7); };
+  ell(CITY.rin); g.fillStyle = '#dcc79f'; g.fill();
+  // the main street from the gate to the temple
+  g.strokeStyle = 'rgba(255,248,230,.75)'; g.lineWidth = 2; g.lineCap = g.lineJoin = 'round'; g.beginPath();
+  STREET.forEach(([x, z], i) => i ? g.lineTo(mx(x), mz(z)) : g.moveTo(mx(x), mz(z))); g.stroke();
+  // rampart, with the gate left open
+  const rw = (CITY.rout - CITY.rin) * mapW / (MAP.x1 - MAP.x0);
+  g.strokeStyle = '#9c7a4f'; g.lineWidth = Math.max(3, rw); g.lineCap = 'butt';
+  const pts = []; for (let a = CITY.gate + 0.06; a <= CITY.gate + Math.PI * 2 - 0.06; a += 0.03) pts.push(cityPt((CITY.rin + CITY.rout) / 2, a));
+  g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(mx(p.x), mz(p.z)) : g.moveTo(mx(p.x), mz(p.z))); g.stroke();
+  // storehouses along the quay
+  g.fillStyle = '#b89668';
+  for (let a = 0.14; a < 1.1; a += 0.02) { const p = stripPt(a, STRIP.depth / 2); g.fillRect(mx(p.x) - 1.5, mz(p.z) - 1.5, 3, 3); }
+  // temple terrace and temple
+  g.fillStyle = '#c4a57a'; g.fillRect(mx(TERRACE.x0), mz(TERRACE.z0), mx(TERRACE.x1) - mx(TERRACE.x0), mz(TERRACE.z1) - mz(TERRACE.z0));
+  g.fillStyle = '#f2ead8'; g.fillRect(mx(-11), mz(TERRACE.z0 + 7), mx(11) - mx(-11), mz(TERRACE.z1 - 13) - mz(TERRACE.z0 + 7));
+  // the stone pier
+  g.fillStyle = '#e3cfae'; g.fillRect(mx(PIER.x0), mz(PIER.z0), mx(PIER.x1) - mx(PIER.x0), mz(PIER.z1) - mz(PIER.z0));
+  // labels
+  g.font = '600 9px "Instrument Sans", system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(40,28,14,.75)';
+  g.fillText('UR', mx(-70), mz(-120));
+  g.save(); g.translate(mx(150), mz(-40)); g.rotate(1.0); g.fillStyle = 'rgba(240,245,240,.85)'; g.fillText('RIVER', 0, 0); g.restore();
+  mapStatic = c;
+}
+function stopXY(i) { const p = STOPS[i].pos; return [mx(p.x), mz(p.z)]; }
+let mapTick = 0;
+function drawMap() {
+  if (!mapOpen || !leader) return;
+  if (!mapStatic || mapCv.clientWidth !== mapW) drawMapStatic();
+  if ((mapTick++ & 1) && !params.has('noui')) return;   // every other frame is plenty
+  const g = mapCtx; g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(mapStatic, 0, 0); g.setTransform(mapDpr, 0, 0, mapDpr, 0, 0);
+  // what the camera sees
+  // the camera looks along (-sin yaw, -cos yaw) in x/z, which is the same direction on the map
+  const lx = mx(leader.position.x), lz = mz(leader.position.z), look = Math.atan2(-Math.cos(cam.yaw), -Math.sin(cam.yaw));
+  g.fillStyle = 'rgba(255,240,200,.32)'; g.beginPath(); g.moveTo(lx, lz); g.arc(lx, lz, 30, look - 0.45, look + 0.45); g.closePath(); g.fill();
+  // stops
+  g.font = '700 9px "Instrument Sans", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  STOPS.forEach((s, i) => {
+    const [x, z] = stopXY(i), cur = i === stopIdx;
+    g.beginPath(); g.arc(x, z, cur ? 7.5 : 6.5, 0, 7); g.fillStyle = cur ? '#e0703f' : 'rgba(16,26,51,.88)'; g.fill();
+    g.lineWidth = 1.5; g.strokeStyle = cur ? '#fff1e2' : '#e8c35a'; g.stroke();
+    g.fillStyle = cur ? '#1b0f08' : '#fff4d6'; g.fillText(String(i + 1), x, z + 0.5);
+  });
+  // the merchants: an arrow pointing the way they face
+  g.save(); g.translate(lx, lz); g.rotate(Math.PI - leader.rotation.y);
+  g.beginPath(); g.moveTo(0, -7); g.lineTo(5, 5); g.lineTo(0, 2.5); g.lineTo(-5, 5); g.closePath();
+  g.fillStyle = '#c0391b'; g.fill(); g.lineWidth = 1.5; g.strokeStyle = '#fff'; g.stroke(); g.restore();
+}
+function setMapOpen(v) {
+  mapOpen = v; mapBox.classList.toggle('closed', !v); $('mapToggle').setAttribute('aria-expanded', String(v));
+  $('mapToggle').setAttribute('aria-label', v ? 'Hide map' : 'Show map');
+  try { localStorage.setItem('ur-map', v ? 'open' : 'closed'); } catch (e) { }
+  if (v) { mapStatic = null; drawMap(); }
+}
+$('mapToggle').addEventListener('click', () => setMapOpen(!mapOpen));
+addEventListener('keydown', e => { if (e.key.toLowerCase() === 'm' && !(e.target.closest && e.target.closest('input,textarea'))) setMapOpen(!mapOpen); });
+mapCv.addEventListener('click', e => {
+  const r = mapCv.getBoundingClientRect(), x = e.clientX - r.left, z = e.clientY - r.top;
+  let best = -1, bd = 14;
+  STOPS.forEach((s, i) => { const [sx, sz] = stopXY(i), d = Math.hypot(sx - x, sz - z); if (d < bd) { bd = d; best = i; } });
+  if (best >= 0 && best !== stopIdx) goStop(best);
+});
+mapCv.addEventListener('pointermove', e => {
+  const r = mapCv.getBoundingClientRect(), x = e.clientX - r.left, z = e.clientY - r.top;
+  const hit = STOPS.findIndex((s, i) => { const [sx, sz] = stopXY(i); return Math.hypot(sx - x, sz - z) < 14; });
+  mapCv.style.cursor = hit >= 0 ? 'pointer' : 'default'; mapCv.title = hit >= 0 ? `Walk to stop ${hit + 1}: ${STOPS[hit].title}` : '';
+});
+addEventListener('resize', () => { mapStatic = null; });
+setMapOpen(mapOpen);
+
 // ---------- loop ----------
 const clock = new THREE.Clock(); const tmp = new THREE.Vector3();
 function update() {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-  updateLeader(dt); updateFollower(dt); updatePeople(dt); updateAmbience();
+  updateLeader(dt); updateFollower(dt); updatePeople(dt); updateAmbience(); drawMap();
   for (const f of anim) f(t);
   const k = 1 - Math.exp(-dt * 6);
   cam.yaw += (camGoal.yaw - cam.yaw) * k; cam.pitch += (camGoal.pitch - cam.pitch) * k; cam.dist += (camGoal.dist - cam.dist) * k;
@@ -1680,7 +1795,7 @@ loadText('Ready.');
 const sb = $('startBtn'); sb.disabled = false; sb.textContent = 'Begin the walk';
 sb.addEventListener('click', () => { $('intro').classList.add('gone'); canvas.focus(); started = true; speak(stopIdx); startAmbience(); });
 if (params.has('auto')) $('intro').classList.add('gone');
-if (params.has('noui')) for (const id of ['top', 'tour', 'intro']) $(id).style.display = 'none';
+if (params.has('noui')) for (const id of ['top', 'tour', 'intro', 'mapBox']) $(id).style.display = 'none';
 if (params.get('focus')) setTimeout(() => openHotspot(params.get('focus')), 300);
 if (params.get('cam')) { const [y, p, d] = params.get('cam').split(',').map(Number); Object.assign(camGoal, { yaw: y, pitch: p, dist: d }); Object.assign(cam, { yaw: y, pitch: p, dist: d }); }
 window.__renderer = renderer; window.__scene = scene; window.__ready = true;
